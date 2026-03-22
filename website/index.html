@@ -711,6 +711,35 @@
         </div>
     </section>
 
+    <!-- Languages -->
+    <section class="pillars" style="padding-bottom:30px">
+        <div class="container">
+            <h2>One heap. Any JVM language.</h2>
+            <p style="text-align:center;color:var(--text-dim);margin-bottom:30px">
+                Write functions in Java, Kotlin, Scala, or Groovy.<br>
+                They all share the same heap. Zero-copy across language boundaries.
+            </p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;max-width:900px;margin:0 auto">
+                <div class="pillar" style="padding:18px;text-align:center">
+                    <div style="font-size:1.5rem;margin-bottom:6px;font-weight:700;color:var(--accent)">Java</div>
+                    <div style="font-size:12px;color:var(--text-dim)">127 files &middot; Enterprise pipelines &middot; Virtual threads</div>
+                </div>
+                <div class="pillar" style="padding:18px;text-align:center">
+                    <div style="font-size:1.5rem;margin-bottom:6px;font-weight:700;color:#7F52FF">Kotlin</div>
+                    <div style="font-size:12px;color:var(--text-dim)">Data classes &middot; Coroutines &middot; Extension functions</div>
+                </div>
+                <div class="pillar" style="padding:18px;text-align:center">
+                    <div style="font-size:1.5rem;margin-bottom:6px;font-weight:700;color:#DC322F">Scala</div>
+                    <div style="font-size:12px;color:var(--text-dim)">Case classes &middot; Pattern matching &middot; Functional</div>
+                </div>
+                <div class="pillar" style="padding:18px;text-align:center">
+                    <div style="font-size:1.5rem;margin-bottom:6px;font-weight:700;color:#4298B8">Groovy</div>
+                    <div style="font-size:12px;color:var(--text-dim)">DSLs &middot; Closures &middot; Dynamic scripting</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Install -->
     <section class="code-section" id="install">
         <div class="container">
@@ -723,8 +752,8 @@
 <span class="cm"># Scaffold a function</span>
 <span class="cmd">kubefn init pricing-engine checkout-service</span>
 
-<span class="cm"># Add dependency (Maven Central)</span>
-<span class="str">implementation("com.kubefn:kubefn-api:0.3.1")</span>
+<span class="cm"># Add dependency (Maven Central — no extra repos needed)</span>
+<span class="str">compileOnly("com.kubefn:kubefn-api:0.3.1")</span>
 
 <span class="cm"># Start local runtime with hot-reload</span>
 <span class="cmd">kubefn dev</span>
