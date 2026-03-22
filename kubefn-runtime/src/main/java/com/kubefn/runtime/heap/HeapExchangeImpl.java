@@ -128,6 +128,12 @@ public class HeapExchangeImpl implements HeapExchange {
             KubeFnMetrics.instance().recordHeapGet(false);
             auditLog.recordAccess(key, type.getSimpleName(), group, function,
                     currentRevision(), false);
+            if (captureEngine != null) {
+                var ctx = com.kubefn.runtime.lifecycle.RevisionContext.current();
+                if (ctx != null) {
+                    captureEngine.captureHeapGet(ctx.requestId(), key, type.getSimpleName(), false);
+                }
+            }
             return Optional.empty();
         }
 
@@ -186,6 +192,12 @@ public class HeapExchangeImpl implements HeapExchange {
             String function = currentFunction.get() != null ? currentFunction.get() : "unknown";
             guard.recordRemove(key);
             auditLog.recordRemove(key, group, function, currentRevision());
+            if (captureEngine != null) {
+                var ctx = com.kubefn.runtime.lifecycle.RevisionContext.current();
+                if (ctx != null) {
+                    captureEngine.captureHeapRemove(ctx.requestId(), key);
+                }
+            }
             log.debug("HeapExchange: removed '{}' (was v{})", key, removed.version());
             return true;
         }

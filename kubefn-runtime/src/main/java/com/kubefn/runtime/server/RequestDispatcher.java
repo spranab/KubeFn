@@ -74,8 +74,21 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest nettyRequest) {
+        // Validate request before processing
+        if (!nettyRequest.decoderResult().isSuccess()) {
+            sendError(ctx, 400, "Malformed HTTP request", "invalid");
+            return;
+        }
+
         String method = nettyRequest.method().name();
         String uri = nettyRequest.uri();
+
+        // URI validation
+        if (uri == null || uri.isEmpty()) {
+            sendError(ctx, 400, "Missing request URI", "invalid");
+            return;
+        }
+
         String path = uri.contains("?") ? uri.substring(0, uri.indexOf('?')) : uri;
         Map<String, String> queryParams = parseQueryParams(uri);
         Map<String, String> headers = extractHeaders(nettyRequest);

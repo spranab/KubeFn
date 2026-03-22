@@ -30,6 +30,7 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private final FunctionCircuitBreaker circuitBreaker;
     private final CausalCaptureEngine captureEngine;
     private final ReplayEngine replayEngine;
+    private final AdminAuth auth;
     private byte[] traceUiHtml;
 
     public AdminHandler(FunctionRouter router, ObjectMapper objectMapper,
@@ -41,6 +42,7 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         this.circuitBreaker = circuitBreaker;
         this.captureEngine = captureEngine;
         this.replayEngine = replayEngine;
+        this.auth = new AdminAuth();
         loadTraceUi();
     }
 
@@ -62,6 +64,16 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         String path = uri.contains("?") ? uri.substring(0, uri.indexOf('?')) : uri;
         String query = uri.contains("?") ? uri.substring(uri.indexOf('?') + 1) : "";
         String httpMethod = request.method().name();
+
+        // Auth check for admin endpoints
+        if (path.startsWith("/admin") && auth.isEnabled()) {
+            String authHeader = request.headers().get("Authorization");
+            if (!auth.isAuthorized(path, authHeader)) {
+                sendJson(ctx, 401, objectMapper.writeValueAsBytes(
+                        Map.of("error", "Unauthorized", "hint", "Set Authorization: Bearer <token>")));
+                return;
+            }
+        }
 
         // Serve trace UI
         if (path.equals("/admin/ui") || path.equals("/admin/ui/")) {

@@ -116,3 +116,4 @@ ingress:
   #  - secretName: kubefn-tls
   #    hosts:
   #      - kubefn.local
+  externalFunctions: false
