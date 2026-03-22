@@ -141,6 +141,25 @@ Replace individual functions while traffic flows. Old classloader is discarded, 
 
 Each function group has semaphore-based concurrency limits, preventing noisy neighbors from degrading the organism.
 
+## Install the CLI
+
+```bash
+# Homebrew
+brew tap kubefn/tap && brew install kubefn
+
+# Or direct install
+curl -sf https://kubefn.com/install.sh | sh
+
+# Verify
+kubefn version
+```
+
+Then scaffold a function:
+```bash
+kubefn init my-function my-service
+kubefn dev    # start local runtime with hot-reload
+```
+
 ## Add to Your Project
 
 **Gradle:**
