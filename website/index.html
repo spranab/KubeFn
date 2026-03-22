@@ -259,6 +259,275 @@
         footer a { color: var(--accent); text-decoration: none; }
         footer a:hover { text-decoration: underline; }
 
+        /* Animation Demo */
+        .demo {
+            padding: 70px 0;
+            background: linear-gradient(180deg, var(--bg) 0%, #0f172a 100%);
+        }
+        .demo h2 { font-size: 2rem; text-align: center; margin-bottom: 8px; }
+        .demo .subtitle { text-align: center; color: var(--text-dim); margin-bottom: 36px; }
+
+        .demo-container {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .demo-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #161b22;
+            border-bottom: 1px solid var(--border);
+        }
+        .demo-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+        }
+        .demo-dot.r { background: #ff5f57; }
+        .demo-dot.y { background: #febc2e; }
+        .demo-dot.g { background: #28c840; }
+        .demo-toolbar span {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-left: 8px;
+            font-family: 'SF Mono', monospace;
+        }
+        .demo-btn {
+            margin-left: auto;
+            padding: 5px 14px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .demo-btn:hover { background: #22d3ee; }
+
+        .demo-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 420px;
+        }
+        @media (max-width: 700px) { .demo-body { grid-template-columns: 1fr; } }
+
+        /* Left: Terminal */
+        .demo-terminal {
+            padding: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12.5px;
+            line-height: 1.7;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            max-height: 420px;
+        }
+        .demo-terminal .prompt { color: var(--green); }
+        .demo-terminal .cmd { color: var(--text); }
+        .demo-terminal .out { color: var(--text-dim); }
+        .demo-terminal .ok { color: var(--green); }
+        .demo-terminal .info { color: var(--accent); }
+        .demo-terminal .warn { color: #eab308; }
+        .term-line {
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .term-line.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .term-cursor {
+            display: inline-block;
+            width: 7px; height: 14px;
+            background: var(--accent);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Right: Visual */
+        .demo-visual {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .organism {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            height: 340px;
+        }
+
+        .org-label {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            text-align: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .org-label.visible { opacity: 1; }
+
+        .org-border {
+            position: absolute;
+            top: 20px; left: 0; right: 0; bottom: 0;
+            border: 1.5px solid rgba(6,182,212,0.2);
+            border-radius: 16px;
+            opacity: 0;
+            transition: opacity 0.6s;
+        }
+        .org-border.visible { opacity: 1; border-color: rgba(6,182,212,0.35); }
+
+        .heap-bar {
+            position: absolute;
+            top: 30px; left: 12px; right: 12px;
+            height: 36px;
+            background: rgba(139,92,246,0.08);
+            border: 1px solid rgba(139,92,246,0.25);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 11px;
+            color: var(--accent-2);
+            opacity: 0;
+            transition: opacity 0.5s;
+            gap: 8px;
+            overflow: hidden;
+        }
+        .heap-bar.visible { opacity: 1; }
+        .heap-obj {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(139,92,246,0.15);
+            border: 1px solid rgba(139,92,246,0.4);
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.4s, transform 0.4s;
+        }
+        .heap-obj.visible { opacity: 1; transform: scale(1); }
+
+        /* Function nodes */
+        .fn-node {
+            position: absolute;
+            width: 120px;
+            padding: 10px 8px;
+            background: var(--bg-card);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+            opacity: 0;
+            transform: scale(0.7);
+            transition: opacity 0.5s, transform 0.5s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .fn-node.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .fn-node.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(6,182,212,0.25);
+        }
+        .fn-node.done {
+            border-color: var(--green);
+            box-shadow: 0 0 15px rgba(16,185,129,0.2);
+        }
+        .fn-node .fn-icon { font-size: 20px; margin-bottom: 4px; }
+        .fn-node .fn-name {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2;
+        }
+        .fn-node .fn-path {
+            font-size: 9px;
+            color: var(--text-dim);
+            font-family: 'SF Mono', monospace;
+            margin-top: 2px;
+        }
+        .fn-node .fn-time {
+            font-size: 9px;
+            color: var(--green);
+            font-family: 'SF Mono', monospace;
+            margin-top: 3px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .fn-node .fn-time.visible { opacity: 1; }
+
+        /* Data flow lines */
+        .flow-line {
+            position: absolute;
+            height: 2px;
+            background: var(--accent);
+            opacity: 0;
+            transform-origin: left center;
+            transition: opacity 0.3s;
+            border-radius: 1px;
+        }
+        .flow-line.visible { opacity: 0.6; }
+        .flow-line.active {
+            opacity: 1;
+            box-shadow: 0 0 8px rgba(6,182,212,0.5);
+        }
+
+        .flow-dot {
+            position: absolute;
+            width: 6px; height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            opacity: 0;
+            box-shadow: 0 0 8px rgba(6,182,212,0.8);
+        }
+
+        /* Request packet */
+        .request-packet {
+            position: absolute;
+            padding: 3px 8px;
+            background: rgba(6,182,212,0.15);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            font-size: 9px;
+            font-family: 'SF Mono', monospace;
+            color: var(--accent);
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.4s ease-out;
+        }
+
+        /* Result banner */
+        .result-banner {
+            position: absolute;
+            bottom: 8px; left: 12px; right: 12px;
+            padding: 10px;
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 8px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--green);
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .result-banner.visible { opacity: 1; }
+
         @media (max-width: 600px) {
             .benchmark-compare { grid-template-columns: 1fr; }
             .hero { padding: 50px 0 40px; }
@@ -301,6 +570,71 @@
                         <div class="label">KubeFn</div>
                         <div class="value">0.458ms</div>
                         <div class="detail">7 in-memory, zero serialization</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Animated Demo -->
+    <section class="demo">
+        <div class="container">
+            <h2>See it in action</h2>
+            <p class="subtitle">Deploy 4 functions. Watch them share memory. Process a request in microseconds.</p>
+            <div class="demo-container">
+                <div class="demo-toolbar">
+                    <div class="demo-dot r"></div>
+                    <div class="demo-dot y"></div>
+                    <div class="demo-dot g"></div>
+                    <span>kubefn-organism</span>
+                    <button class="demo-btn" onclick="runDemo()">Run Demo</button>
+                </div>
+                <div class="demo-body">
+                    <!-- Terminal side -->
+                    <div class="demo-terminal" id="demoTerminal"></div>
+                    <!-- Visual side -->
+                    <div class="demo-visual">
+                        <div class="organism" id="organism">
+                            <div class="org-label" id="orgLabel">KubeFn Organism (Shared JVM)</div>
+                            <div class="org-border" id="orgBorder"></div>
+                            <div class="heap-bar" id="heapBar">
+                                HeapExchange:
+                                <span class="heap-obj" id="ho1">auth</span>
+                                <span class="heap-obj" id="ho2">price</span>
+                                <span class="heap-obj" id="ho3">fraud</span>
+                                <span class="heap-obj" id="ho4">quote</span>
+                            </div>
+
+                            <!-- Function nodes -->
+                            <div class="fn-node" id="fn1" style="top:80px;left:10px;">
+                                <div class="fn-icon">&#128274;</div>
+                                <div class="fn-name">AuthFunction</div>
+                                <div class="fn-path">/auth</div>
+                                <div class="fn-time" id="ft1">0.08ms</div>
+                            </div>
+                            <div class="fn-node" id="fn2" style="top:80px;right:10px;">
+                                <div class="fn-icon">&#128176;</div>
+                                <div class="fn-name">PricingFunction</div>
+                                <div class="fn-path">/pricing</div>
+                                <div class="fn-time" id="ft2">0.12ms</div>
+                            </div>
+                            <div class="fn-node" id="fn3" style="top:195px;left:10px;">
+                                <div class="fn-icon">&#128737;</div>
+                                <div class="fn-name">FraudFunction</div>
+                                <div class="fn-path">/fraud</div>
+                                <div class="fn-time" id="ft3">0.15ms</div>
+                            </div>
+                            <div class="fn-node" id="fn4" style="top:195px;right:10px;">
+                                <div class="fn-icon">&#128230;</div>
+                                <div class="fn-name">QuoteAssembler</div>
+                                <div class="fn-path">/checkout</div>
+                                <div class="fn-time" id="ft4">0.03ms</div>
+                            </div>
+
+                            <div class="result-banner" id="resultBanner">
+                                4 functions &middot; 0.38ms total &middot; zero serialization &middot; zero HTTP calls
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -425,5 +759,162 @@
             </p>
         </div>
     </footer>
+    <script>
+    // KubeFn Animated Demo Engine
+    const termLines = [
+        { type: 'prompt', text: '$ kubefn dev' },
+        { type: 'info', text: 'Booting KubeFn organism...' },
+        { type: 'ok', text: 'Netty server listening on :8080' },
+        { type: 'ok', text: 'HeapExchange initialized (0 objects)' },
+        { type: 'ok', text: 'Virtual threads: enabled', action: 'showOrg' },
+        { type: 'blank' },
+        { type: 'prompt', text: '$ kubefn deploy auth.jar checkout-svc' },
+        { type: 'ok', text: 'Loaded AuthFunction', action: 'showFn1' },
+        { type: 'info', text: '  GET /auth \u2192 checkout-svc.AuthFunction' },
+        { type: 'prompt', text: '$ kubefn deploy pricing.jar checkout-svc' },
+        { type: 'ok', text: 'Loaded PricingFunction', action: 'showFn2' },
+        { type: 'info', text: '  POST /pricing \u2192 checkout-svc.PricingFunction' },
+        { type: 'prompt', text: '$ kubefn deploy fraud.jar checkout-svc' },
+        { type: 'ok', text: 'Loaded FraudFunction', action: 'showFn3' },
+        { type: 'info', text: '  POST /fraud \u2192 checkout-svc.FraudFunction' },
+        { type: 'prompt', text: '$ kubefn deploy quote.jar checkout-svc' },
+        { type: 'ok', text: 'Loaded QuoteAssembler', action: 'showFn4' },
+        { type: 'info', text: '  GET /checkout \u2192 checkout-svc.QuoteAssembler' },
+        { type: 'ok', text: 'Organism ALIVE: 4 functions, 0.0ms warmup' },
+        { type: 'blank' },
+        { type: 'prompt', text: '$ curl localhost:8080/checkout', action: 'startRequest' },
+        { type: 'info', text: '  \u2192 AuthFunction (0.08ms)', action: 'execFn1' },
+        { type: 'info', text: '    heap.publish("auth", authCtx) \u2192 zero-copy', action: 'heapObj1' },
+        { type: 'info', text: '  \u2192 PricingFunction (0.12ms)', action: 'execFn2' },
+        { type: 'info', text: '    heap.get("auth") \u2192 same object, 0 bytes copied', action: 'heapObj2' },
+        { type: 'info', text: '  \u2192 FraudFunction (0.15ms)', action: 'execFn3' },
+        { type: 'info', text: '    heap.get("auth","price") \u2192 zero-copy reads', action: 'heapObj3' },
+        { type: 'info', text: '  \u2192 QuoteAssembler (0.03ms)', action: 'execFn4' },
+        { type: 'info', text: '    heap.get("auth","price","fraud") \u2192 zero-copy', action: 'heapObj4' },
+        { type: 'blank' },
+        { type: 'ok', text: '{"total":"$84.99","steps":4,"time":"0.38ms"}', action: 'showResult' },
+        { type: 'ok', text: '4 functions \u00b7 0 HTTP calls \u00b7 0 serialization \u00b7 0.38ms' },
+    ];
+
+    let demoRunning = false;
+
+    function resetDemo() {
+        document.getElementById('demoTerminal').innerHTML = '';
+        ['orgLabel','orgBorder','heapBar','resultBanner'].forEach(id => {
+            document.getElementById(id).classList.remove('visible');
+        });
+        ['fn1','fn2','fn3','fn4'].forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.remove('visible','active','done');
+        });
+        ['ft1','ft2','ft3','ft4'].forEach(id => {
+            document.getElementById(id).classList.remove('visible');
+        });
+        ['ho1','ho2','ho3','ho4'].forEach(id => {
+            document.getElementById(id).classList.remove('visible');
+        });
+    }
+
+    async function runDemo() {
+        if (demoRunning) return;
+        demoRunning = true;
+        resetDemo();
+
+        const terminal = document.getElementById('demoTerminal');
+
+        for (let i = 0; i < termLines.length; i++) {
+            const line = termLines[i];
+            const el = document.createElement('div');
+            el.className = 'term-line';
+
+            if (line.type === 'blank') {
+                el.innerHTML = '&nbsp;';
+            } else if (line.type === 'prompt') {
+                el.innerHTML = `<span class="prompt">${line.text}</span>`;
+            } else if (line.type === 'ok') {
+                el.innerHTML = `<span class="ok">${line.text}</span>`;
+            } else if (line.type === 'info') {
+                el.innerHTML = `<span class="info">${line.text}</span>`;
+            } else {
+                el.innerHTML = `<span class="out">${line.text}</span>`;
+            }
+
+            terminal.appendChild(el);
+            terminal.scrollTop = terminal.scrollHeight;
+
+            await sleep(40);
+            el.classList.add('visible');
+
+            // Execute visual action
+            if (line.action) executeAction(line.action);
+
+            // Pacing
+            let delay = 120;
+            if (line.type === 'prompt') delay = 400;
+            if (line.type === 'blank') delay = 200;
+            if (line.action && line.action.startsWith('exec')) delay = 350;
+            if (line.action && line.action.startsWith('heap')) delay = 250;
+            if (line.action === 'showResult') delay = 300;
+            await sleep(delay);
+        }
+
+        demoRunning = false;
+    }
+
+    function executeAction(action) {
+        switch(action) {
+            case 'showOrg':
+                document.getElementById('orgLabel').classList.add('visible');
+                document.getElementById('orgBorder').classList.add('visible');
+                document.getElementById('heapBar').classList.add('visible');
+                break;
+            case 'showFn1': show('fn1'); break;
+            case 'showFn2': show('fn2'); break;
+            case 'showFn3': show('fn3'); break;
+            case 'showFn4': show('fn4'); break;
+            case 'startRequest':
+                // Reset all to ready state
+                ['fn1','fn2','fn3','fn4'].forEach(id => {
+                    document.getElementById(id).classList.remove('active','done');
+                });
+                break;
+            case 'execFn1': activate('fn1','ft1'); break;
+            case 'execFn2': done('fn1'); activate('fn2','ft2'); break;
+            case 'execFn3': done('fn2'); activate('fn3','ft3'); break;
+            case 'execFn4': done('fn3'); activate('fn4','ft4'); break;
+            case 'heapObj1': show('ho1'); break;
+            case 'heapObj2': show('ho2'); break;
+            case 'heapObj3': show('ho3'); break;
+            case 'heapObj4': show('ho4'); break;
+            case 'showResult':
+                done('fn4');
+                document.getElementById('resultBanner').classList.add('visible');
+                break;
+        }
+    }
+
+    function show(id) { document.getElementById(id).classList.add('visible'); }
+    function activate(fnId, timeId) {
+        document.getElementById(fnId).classList.add('active');
+        document.getElementById(fnId).classList.remove('done');
+        if (timeId) document.getElementById(timeId).classList.add('visible');
+    }
+    function done(fnId) {
+        document.getElementById(fnId).classList.remove('active');
+        document.getElementById(fnId).classList.add('done');
+    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // Auto-run when visible
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !demoRunning) {
+                observer.disconnect();
+                setTimeout(runDemo, 500);
+            }
+        });
+    }, { threshold: 0.3 });
+    observer.observe(document.querySelector('.demo'));
+    </script>
 </body>
 </html>
