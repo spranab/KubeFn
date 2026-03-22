@@ -1,0 +1,69 @@
+
+=======================================================
+  KubeFn {{ .Chart.AppVersion }} has been installed.
+=======================================================
+
+Namespace: {{ include "kubefn.namespace" . }}
+
+1. VERIFY THE INSTALLATION
+
+   kubectl get pods -n {{ include "kubefn.namespace" . }}
+   kubectl get crds | grep kubefn
+
+2. ACCESS THE RUNTIME
+{{- if .Values.ingress.enabled }}
+
+   The runtime is available at:
+     http://{{ .Values.ingress.host }}
+{{- else }}
+
+   Port-forward to the runtime service:
+     kubectl port-forward svc/{{ include "kubefn.fullname" . }}-runtime -n {{ include "kubefn.namespace" . }} 8080:80
+
+   Then access at: http://localhost:8080
+{{- end }}
+
+3. CHECK HEALTH
+
+   # Via port-forward to admin port:
+   kubectl port-forward svc/{{ include "kubefn.fullname" . }}-runtime -n {{ include "kubefn.namespace" . }} 8081:8081
+   curl http://localhost:8081/healthz
+   curl http://localhost:8081/readyz
+
+4. DEPLOY A FUNCTION
+
+   Create a KubeFnGroup:
+
+     apiVersion: kubefn.com/v1alpha1
+     kind: KubeFnGroup
+     metadata:
+       name: my-group
+       namespace: {{ include "kubefn.namespace" . }}
+     spec:
+       image: kubefn/runtime:{{ .Chart.AppVersion }}
+       replicas: 1
+       isolationMode: shared-jvm
+
+   Create a KubeFnFunction:
+
+     apiVersion: kubefn.com/v1alpha1
+     kind: KubeFnFunction
+     metadata:
+       name: hello
+       namespace: {{ include "kubefn.namespace" . }}
+     spec:
+       groupRef: my-group
+       className: com.example.HelloHandler
+       route:
+         path: /hello
+         methods: ["GET"]
+       source:
+         type: configmap
+         configMapRef:
+           name: hello-classes
+
+5. TEST A FUNCTION
+
+   curl http://localhost:8080/hello
+
+For more information, visit: {{ .Chart.Home }}

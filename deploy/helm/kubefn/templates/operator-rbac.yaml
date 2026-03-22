@@ -1,0 +1,66 @@
+{{- if .Values.operator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kubefn.fullname" . }}-operator
+  namespace: {{ include "kubefn.namespace" . }}
+  labels:
+    {{- include "kubefn.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubefn.fullname" . }}-operator
+  labels:
+    {{- include "kubefn.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+rules:
+  # CRD watching
+  - apiGroups: ["kubefn.com"]
+    resources: ["kubefngroups", "kubefnfunctions"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["kubefn.com"]
+    resources: ["kubefngroups/status", "kubefnfunctions/status"]
+    verbs: ["get", "update", "patch"]
+  # Manage deployments created for KubeFnGroups
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Manage services created for KubeFnGroups
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Manage configmaps for function source
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Read pods for status
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Events for recording operator actions
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Namespaces for discovery
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kubefn.fullname" . }}-operator
+  labels:
+    {{- include "kubefn.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubefn.fullname" . }}-operator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubefn.fullname" . }}-operator
+    namespace: {{ include "kubefn.namespace" . }}
+{{- end }}

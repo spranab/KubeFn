@@ -1,0 +1,18 @@
+apiVersion: v2
+name: kubefn
+description: KubeFn — Live Application Fabric for Memory-Continuous Architecture
+version: 0.2.0
+appVersion: "0.2.0"
+type: application
+home: https://kubefn.com
+sources:
+  - https://github.com/spranab/KubeFn
+maintainers:
+  - name: Pranab Sarkar
+    email: mail@pranab.co.in
+keywords:
+  - kubernetes
+  - faas
+  - functions
+  - shared-jvm
+  - memory-continuous

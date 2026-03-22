@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubefn.fullname" . }}-runtime
+  namespace: {{ include "kubefn.namespace" . }}
+  labels:
+    {{- include "kubefn.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runtime
+spec:
+  replicas: {{ .Values.runtime.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kubefn.runtime.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "kubefn.labels" . | nindent 8 }}
+        app.kubernetes.io/component: runtime
+      {{- with .Values.runtime.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.runtime.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kubefn.fullname" . }}-runtime
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: runtime
+          image: {{ include "kubefn.runtime.image" . }}
+          imagePullPolicy: {{ .Values.runtime.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: {{ .Values.runtime.port }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.runtime.adminPort }}
+              protocol: TCP
+          env:
+            - name: KUBEFN_PORT
+              value: {{ .Values.runtime.port | quote }}
+            - name: KUBEFN_ADMIN_PORT
+              value: {{ .Values.runtime.adminPort | quote }}
+            - name: KUBEFN_FUNCTIONS_DIR
+              value: {{ .Values.runtime.functionsDir | quote }}
+            - name: KUBEFN_MAX_CONCURRENCY_PER_GROUP
+              value: {{ .Values.runtime.maxConcurrencyPerGroup | quote }}
+            - name: KUBEFN_REQUEST_TIMEOUT_MS
+              value: {{ .Values.runtime.requestTimeoutMs | quote }}
+            - name: JAVA_OPTS
+              value: {{ join " " .Values.runtime.jvmArgs | quote }}
+            {{- with .Values.runtime.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: admin
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: admin
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.runtime.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: functions
+              mountPath: {{ .Values.runtime.functionsDir }}
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: functions
+          emptyDir: {}
+      {{- with .Values.runtime.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.runtime.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.runtime.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kubefn.fullname" . }}-runtime
+  namespace: {{ include "kubefn.namespace" . }}
+  labels:
+    {{- include "kubefn.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runtime

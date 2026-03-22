@@ -1,0 +1,118 @@
+# -- KubeFn Helm Chart Values
+# -- See https://kubefn.com for documentation
+
+# -- Namespace to deploy into
+namespace: kubefn
+
+# -----------------------------------------------------------------------------
+# Runtime configuration
+# -----------------------------------------------------------------------------
+runtime:
+  # -- Container image for the KubeFn runtime
+  image:
+    repository: kubefn/runtime
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # -- Number of runtime replicas
+  replicas: 1
+
+  # -- JVM arguments passed to the runtime process
+  jvmArgs:
+    - "-Xmx1536m"
+    - "-XX:+UseZGC"
+
+  # -- Primary HTTP port for function invocations
+  port: 8080
+
+  # -- Admin/health port
+  adminPort: 8081
+
+  # -- Max concurrent requests per function group
+  maxConcurrencyPerGroup: 256
+
+  # -- Request timeout in milliseconds
+  requestTimeoutMs: 30000
+
+  # -- Directory inside the container where .class files are mounted
+  functionsDir: /kubefn/functions
+
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # -- Additional environment variables (list of {name, value} maps)
+  extraEnv: []
+
+  # -- Node selector for runtime pods
+  nodeSelector: {}
+
+  # -- Tolerations for runtime pods
+  tolerations: []
+
+  # -- Affinity rules for runtime pods
+  affinity: {}
+
+  # -- Pod annotations
+  podAnnotations: {}
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+
+# -----------------------------------------------------------------------------
+# Operator configuration
+# -----------------------------------------------------------------------------
+operator:
+  # -- Enable the KubeFn operator
+  enabled: true
+
+  # -- Container image for the operator
+  image:
+    repository: kubefn/operator
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  # -- Node selector for operator pod
+  nodeSelector: {}
+
+  # -- Tolerations for operator pod
+  tolerations: []
+
+  # -- Affinity rules for operator pod
+  affinity: {}
+
+# -----------------------------------------------------------------------------
+# Ingress configuration
+# -----------------------------------------------------------------------------
+ingress:
+  # -- Enable ingress resource
+  enabled: false
+
+  # -- Ingress class name (e.g. nginx, traefik)
+  className: ""
+
+  # -- Hostname for the ingress
+  host: kubefn.local
+
+  # -- Additional ingress annotations
+  annotations: {}
+
+  # -- TLS configuration
+  tls: []
+  #  - secretName: kubefn-tls
+  #    hosts:
+  #      - kubefn.local

@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeFn — Causal State Introspection</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0e17;
+    --card:      #111827;
+    --card-alt:  #1a2332;
+    --border:    #1e293b;
+    --accent:    #06b6d4;
+    --accent-dim:#0e7490;
+    --text:      #e2e8f0;
+    --text-dim:  #94a3b8;
+    --green:     #34d399;
+    --yellow:    #fbbf24;
+    --red:       #f87171;
+    --purple:    #a78bfa;
+    --cyan:      #06b6d4;
+    --blue:      #60a5fa;
+    --mono:      'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    --sans:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--text-dim); font-weight: 400; }
+  .topbar-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .auto-refresh-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-dim); cursor: pointer;
+    user-select: none;
+  }
+  .auto-refresh-toggle input { accent-color: var(--accent); }
+
+  /* ── Stats Bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-value.accent { color: var(--accent); }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  /* ── Search / Filter Bar ── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .filter-bar input, .filter-bar select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-bar input:focus, .filter-bar select:focus {
+    border-color: var(--accent);
+  }
+  .filter-bar input::placeholder { color: var(--text-dim); }
+  .filter-bar select option { background: var(--card); }
+  .filter-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+  }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .btn {
+    background: var(--accent-dim);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ── Main Content ── */
+  .main { padding: 0 24px 40px; }
+
+  /* ── Trace Table ── */
+  .trace-table-wrap {
+    overflow-x: auto;
+    margin-top: 20px;
+  }
+  table.trace-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  table.trace-table thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    user-select: none;
+    cursor: pointer;
+  }
+  table.trace-table thead th:hover { color: var(--accent); }
+  table.trace-table tbody tr {
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+  table.trace-table tbody tr:hover { background: var(--card); }
+  table.trace-table td {
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+  .dur-fast  { color: var(--green); }
+  .dur-med   { color: var(--yellow); }
+  .dur-slow  { color: var(--red); }
+  .error-badge {
+    background: rgba(248,113,113,0.15);
+    color: var(--red);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .no-error { color: var(--text-dim); }
+  .req-id {
+    color: var(--accent);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ts-col { color: var(--text-dim); }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state h3 { font-size: 16px; margin-bottom: 8px; color: var(--text); }
+
+  /* ── Trace Detail View ── */
+  .detail-view { display: none; margin-top: 20px; }
+  .detail-view.active { display: block; }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .breadcrumb a {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep { color: var(--text-dim); }
+  .breadcrumb .current { color: var(--text); font-family: var(--mono); }
+
+  /* ── Detail Summary Cards ── */
+  .detail-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .detail-stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  .detail-stat .ds-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .detail-stat .ds-value {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  /* ── Section Headings ── */
+  .section-heading {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin: 28px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* ── Waterfall Timeline ── */
+  .waterfall-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .waterfall-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    min-height: 28px;
+  }
+  .wf-label {
+    flex: 0 0 200px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 12px;
+  }
+  .wf-track {
+    flex: 1;
+    position: relative;
+    height: 22px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 3px;
+  }
+  .wf-bar {
+    position: absolute;
+    top: 2px;
+    height: 18px;
+    border-radius: 3px;
+    min-width: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .wf-bar.fn   { background: var(--cyan); }
+  .wf-bar.heap { background: var(--purple); }
+  .wf-bar:hover { filter: brightness(1.2); }
+  .wf-time-axis {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    padding-left: 200px;
+    margin-top: 4px;
+  }
+  .wf-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 12px;
+  }
+  .wf-legend-item { display: flex; align-items: center; gap: 6px; }
+  .wf-legend-swatch {
+    width: 12px; height: 12px; border-radius: 2px;
+  }
+
+  /* ── Heap Mutations Table ── */
+  .heap-table-wrap {
+    overflow-x: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  table.heap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  table.heap-table thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    background: var(--card-alt);
+  }
+  table.heap-table tbody tr {
+    border-bottom: 1px solid var(--border);
+  }
+  table.heap-table td { padding: 8px 14px; }
+  .op-publish { color: var(--green); font-weight: 600; }
+  .op-get     { color: var(--blue); font-weight: 600; }
+  .op-remove  { color: var(--red); font-weight: 600; }
+
+  /* ── Errors Section ── */
+  .error-block {
+    background: rgba(248,113,113,0.06);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--red);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* ── Revision IDs ── */
+  .revision-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .revision-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ── Replay ── */
+  .replay-result {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+  }
+  .replay-result.active { display: block; }
+  .replay-result.error { border-color: rgba(248,113,113,0.3); }
+  .replay-result.success { border-color: rgba(52,211,153,0.3); }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px 16px; }
+    .filter-bar { padding: 12px 16px; }
+    .main { padding: 0 16px 32px; }
+    .topbar { padding: 10px 16px; }
+    .wf-label { flex: 0 0 120px; }
+    .wf-time-axis { padding-left: 120px; }
+    .stat-value { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top Bar ── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo">kubefn<span>/traces</span></div>
+    <div class="topbar-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="connectionStatus">connected</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <label class="auto-refresh-toggle">
+      <input type="checkbox" id="autoRefresh" checked>
+      auto-refresh 5s
+    </label>
+    <button class="btn btn-ghost" onclick="fetchAll()" title="Refresh now">refresh</button>
+  </div>
+</header>
+
+<!-- ── Stats Bar ── -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-label">Total Requests</div>
+    <div class="stat-value accent" id="statTotal">--</div>
+    <div class="stat-sub" id="statTotalSub">&nbsp;</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Latency</div>
+    <div class="stat-value" id="statLatency">--</div>
+    <div class="stat-sub" id="statLatencySub">&nbsp;</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Heap Hit Rate</div>
+    <div class="stat-value" id="statHitRate">--</div>
+    <div class="stat-sub" id="statHitRateSub">&nbsp;</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Circuit Breakers</div>
+    <div class="stat-value" id="statCB">--</div>
+    <div class="stat-sub" id="statCBSub">&nbsp;</div>
+  </div>
+</div>
+
+<!-- ── Filter Bar ── -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <span class="filter-label">ID</span>
+    <input type="text" id="filterRequestId" placeholder="request id..." style="width:180px">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Group</span>
+    <input type="text" id="filterGroup" placeholder="group..." style="width:120px">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Function</span>
+    <input type="text" id="filterFunction" placeholder="function..." style="width:140px">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Min ms</span>
+    <input type="number" id="filterMinDuration" placeholder="0" style="width:70px" min="0">
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Errors</span>
+    <select id="filterErrors" style="width:90px">
+      <option value="">all</option>
+      <option value="true">yes</option>
+      <option value="false">no</option>
+    </select>
+  </div>
+  <button class="btn" onclick="applyFilters()">search</button>
+  <button class="btn btn-ghost" onclick="clearFilters()">clear</button>
+</div>
+
+<!-- ── Main Content ── -->
+<div class="main">
+
+  <!-- Dashboard View -->
+  <div id="dashboardView">
+    <div class="trace-table-wrap">
+      <table class="trace-table">
+        <thead>
+          <tr>
+            <th onclick="sortBy('requestId')">Request ID</th>
+            <th onclick="sortBy('entryFunction')">Entry Function</th>
+            <th onclick="sortBy('group')">Group</th>
+            <th onclick="sortBy('durationMs')">Duration</th>
+            <th onclick="sortBy('heapOps')">Heap Ops</th>
+            <th onclick="sortBy('errorCount')">Errors</th>
+            <th onclick="sortBy('timestamp')">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="traceTableBody">
+        </tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <h3>No traces found</h3>
+      <p>Traces will appear here as requests flow through the runtime.</p>
+    </div>
+  </div>
+
+  <!-- Trace Detail View -->
+  <div id="detailView" class="detail-view">
+    <div class="breadcrumb">
+      <a onclick="showDashboard()">Traces</a>
+      <span class="sep">/</span>
+      <span class="current" id="detailReqId"></span>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="detail-summary" id="detailSummary"></div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex;gap:10px;margin-bottom:8px">
+      <button class="btn" id="replayBtn" onclick="replayRequest()">replay request</button>
+      <button class="btn btn-ghost" onclick="showDashboard()">back to list</button>
+    </div>
+    <div class="replay-result" id="replayResult"></div>
+
+    <!-- Timeline -->
+    <div class="section-heading">
+      <span>Execution Timeline</span>
+      <div class="wf-legend">
+        <div class="wf-legend-item"><div class="wf-legend-swatch" style="background:var(--cyan)"></div>function</div>
+        <div class="wf-legend-item"><div class="wf-legend-swatch" style="background:var(--purple)"></div>heap op</div>
+      </div>
+    </div>
+    <div class="waterfall-container" id="waterfallContainer"></div>
+
+    <!-- Heap Mutations -->
+    <div class="section-heading"><span>Heap Mutations</span></div>
+    <div class="heap-table-wrap">
+      <table class="heap-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Operation</th>
+            <th>Key</th>
+            <th>Type</th>
+            <th>Version</th>
+            <th>By Function</th>
+          </tr>
+        </thead>
+        <tbody id="heapTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Errors -->
+    <div id="errorsSection" style="display:none">
+      <div class="section-heading"><span>Errors</span></div>
+      <div class="error-block" id="errorsBlock"></div>
+    </div>
+
+    <!-- Revision IDs -->
+    <div id="revisionsSection" style="display:none">
+      <div class="section-heading"><span>Revision IDs</span></div>
+      <div class="revision-list" id="revisionList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──
+  let traces = [];
+  let currentTrace = null;
+  let currentRequestId = null;
+  let sortField = 'timestamp';
+  let sortAsc = false;
+  let refreshTimer = null;
+
+  // ── DOM refs ──
+  const $ = id => document.getElementById(id);
+  const dashboardView   = $('dashboardView');
+  const detailView      = $('detailView');
+  const traceTableBody  = $('traceTableBody');
+  const emptyState      = $('emptyState');
+
+  // ── API helpers ──
+  const BASE = '';
+
+  async function api(method, path, body) {
+    try {
+      const opts = { method, headers: { 'Accept': 'application/json' } };
+      if (body) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const res = await fetch(BASE + path, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    } catch (e) {
+      console.error(`API ${method} ${path} failed:`, e);
+      setConnectionStatus(false);
+      throw e;
+    }
+  }
+
+  function setConnectionStatus(ok) {
+    const dot = $('statusDot');
+    const label = $('connectionStatus');
+    if (ok) {
+      dot.style.background = 'var(--green)';
+      label.textContent = 'connected';
+    } else {
+      dot.style.background = 'var(--red)';
+      dot.style.animation = 'none';
+      label.textContent = 'disconnected';
+      setTimeout(() => { dot.style.animation = ''; }, 100);
+    }
+  }
+
+  // ── Formatting ──
+  function fmtDuration(ms) {
+    if (ms == null) return '--';
+    if (ms < 1) return ms.toFixed(3);
+    if (ms < 100) return ms.toFixed(2);
+    if (ms < 1000) return ms.toFixed(1);
+    return (ms / 1000).toFixed(2) + 's';
+  }
+
+  function durClass(ms) {
+    if (ms == null) return '';
+    if (ms < 1) return 'dur-fast';
+    if (ms < 10) return 'dur-med';
+    return 'dur-slow';
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return '--';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  }
+
+  function fmtPercent(v) {
+    if (v == null) return '--';
+    return (v * 100).toFixed(1) + '%';
+  }
+
+  function shortId(id) {
+    if (!id) return '--';
+    return id.length > 12 ? id.substring(0, 12) + '\u2026' : id;
+  }
+
+  function escHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  // ── Fetch Data ──
+  async function fetchAll() {
+    try {
+      const [recentData, metricsData] = await Promise.all([
+        api('GET', '/admin/traces/recent?limit=50'),
+        api('GET', '/admin/metrics').catch(() => null)
+      ]);
+      setConnectionStatus(true);
+      if (recentData) {
+        traces = Array.isArray(recentData) ? recentData : (recentData.traces || []);
+        renderTraceTable();
+      }
+      if (metricsData) renderMetrics(metricsData);
+    } catch (e) {
+      // connection error already handled
+    }
+  }
+
+  async function fetchFiltered() {
+    const params = new URLSearchParams();
+    const group = $('filterGroup').value.trim();
+    const fn = $('filterFunction').value.trim();
+    const minDur = $('filterMinDuration').value.trim();
+    const errors = $('filterErrors').value;
+
+    if (group)  params.set('group', group);
+    if (fn)     params.set('function', fn);
+    if (minDur) params.set('minDurationMs', minDur);
+    if (errors) params.set('hasErrors', errors);
+    params.set('limit', '50');
+
+    try {
+      const data = await api('GET', '/admin/traces/search?' + params.toString());
+      setConnectionStatus(true);
+      traces = Array.isArray(data) ? data : (data.traces || []);
+      renderTraceTable();
+    } catch (e) {}
+  }
+
+  async function fetchTraceDetail(requestId) {
+    try {
+      const data = await api('GET', '/admin/traces/' + encodeURIComponent(requestId));
+      setConnectionStatus(true);
+      currentTrace = data;
+      currentRequestId = requestId;
+      renderDetail();
+    } catch (e) {}
+  }
+
+  // ── Render: Metrics ──
+  function renderMetrics(m) {
+    $('statTotal').textContent = m.totalRequests != null ? m.totalRequests.toLocaleString() : '--';
+    $('statTotalSub').textContent = m.requestsPerSecond != null ? (m.requestsPerSecond.toFixed(1) + ' req/s') : '';
+
+    if (m.avgLatencyMs != null) {
+      $('statLatency').textContent = fmtDuration(m.avgLatencyMs);
+      $('statLatency').className = 'stat-value ' + durClass(m.avgLatencyMs);
+      $('statLatencySub').textContent = m.p99LatencyMs != null ? ('p99: ' + fmtDuration(m.p99LatencyMs)) : '';
+    }
+
+    if (m.heapHitRate != null) {
+      const pct = fmtPercent(m.heapHitRate);
+      $('statHitRate').textContent = pct;
+      $('statHitRate').style.color = m.heapHitRate > 0.8 ? 'var(--green)' : m.heapHitRate > 0.5 ? 'var(--yellow)' : 'var(--red)';
+      $('statHitRateSub').textContent = m.heapSize != null ? (m.heapSize + ' entries') : '';
+    }
+
+    const cbCount = m.activeCircuitBreakers != null ? m.activeCircuitBreakers : (m.circuitBreakers ? m.circuitBreakers.length : null);
+    if (cbCount != null) {
+      $('statCB').textContent = cbCount;
+      $('statCB').style.color = cbCount > 0 ? 'var(--red)' : 'var(--green)';
+      $('statCBSub').textContent = cbCount > 0 ? 'active' : 'all closed';
+    }
+  }
+
+  // ── Render: Trace Table ──
+  function renderTraceTable() {
+    if (!traces.length) {
+      traceTableBody.innerHTML = '';
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    const sorted = [...traces].sort((a, b) => {
+      let va = a[sortField], vb = b[sortField];
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    traceTableBody.innerHTML = sorted.map(t => {
+      const dc = durClass(t.durationMs);
+      const errCount = t.errorCount || t.errors || 0;
+      const heapOps = t.heapOps != null ? t.heapOps : (t.heapPublishes || 0) + (t.heapGets || 0);
+      return `<tr onclick="window.__showTrace('${escHtml(t.requestId)}')">
+        <td class="req-id" title="${escHtml(t.requestId)}">${escHtml(shortId(t.requestId))}</td>
+        <td>${escHtml(t.entryFunction || t.function || '--')}</td>
+        <td>${escHtml(t.group || '--')}</td>
+        <td class="${dc}">${fmtDuration(t.durationMs)} ms</td>
+        <td>${heapOps}</td>
+        <td>${errCount > 0 ? '<span class="error-badge">' + errCount + ' error' + (errCount > 1 ? 's' : '') + '</span>' : '<span class="no-error">--</span>'}</td>
+        <td class="ts-col">${fmtTime(t.timestamp)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Render: Detail ──
+  function renderDetail() {
+    const t = currentTrace;
+    if (!t) return;
+
+    detailView.classList.add('active');
+    dashboardView.style.display = 'none';
+
+    $('detailReqId').textContent = t.requestId || currentRequestId;
+
+    // Summary cards
+    const publishes = t.heapPublishes != null ? t.heapPublishes : countOps(t, 'PUBLISH');
+    const gets = t.heapGets != null ? t.heapGets : countOps(t, 'GET');
+    const fnCount = t.functionCount || (t.functions ? t.functions.length : (t.spans ? t.spans.length : 0));
+    const hitRate = t.hitRate != null ? fmtPercent(t.hitRate) : (gets > 0 ? fmtPercent(gets > 0 ? gets / (gets + (t.heapMisses || 0)) : 0) : '--');
+
+    $('detailSummary').innerHTML = [
+      { label: 'Total Time', value: fmtDuration(t.durationMs) + ' ms', cls: durClass(t.durationMs) },
+      { label: 'Functions', value: fnCount },
+      { label: 'Publishes', value: publishes, cls: 'op-publish' },
+      { label: 'Gets', value: gets, cls: 'op-get' },
+      { label: 'Hit Rate', value: hitRate },
+      { label: 'Group', value: t.group || '--' },
+    ].map(s => `<div class="detail-stat">
+      <div class="ds-label">${s.label}</div>
+      <div class="ds-value${s.cls ? ' ' + s.cls : ''}">${s.value}</div>
+    </div>`).join('');
+
+    // Waterfall
+    renderWaterfall(t);
+
+    // Heap mutations
+    renderHeapTable(t);
+
+    // Errors
+    const errors = t.errors || t.errorMessages || [];
+    const errSection = $('errorsSection');
+    if (errors.length) {
+      errSection.style.display = 'block';
+      $('errorsBlock').textContent = Array.isArray(errors) ? errors.join('\n\n') : String(errors);
+    } else {
+      errSection.style.display = 'none';
+    }
+
+    // Revisions
+    const revisions = t.revisionIds || t.revisions || [];
+    const revSection = $('revisionsSection');
+    if (revisions.length) {
+      revSection.style.display = 'block';
+      $('revisionList').innerHTML = revisions.map(r =>
+        `<span class="revision-chip">${escHtml(String(r))}</span>`
+      ).join('');
+    } else {
+      revSection.style.display = 'none';
+    }
+
+    // Reset replay
+    $('replayResult').className = 'replay-result';
+    $('replayResult').style.display = 'none';
+  }
+
+  function countOps(trace, opType) {
+    const ops = trace.heapMutations || trace.heapOperations || [];
+    return ops.filter(o => (o.operation || o.op) === opType).length;
+  }
+
+  // ── Render: Waterfall ──
+  function renderWaterfall(t) {
+    const container = $('waterfallContainer');
+    const spans = t.spans || t.functions || t.timeline || [];
+    if (!spans.length) {
+      container.innerHTML = '<div style="padding:20px;color:var(--text-dim);text-align:center">No timeline spans available</div>';
+      return;
+    }
+
+    // Find time bounds
+    let minStart = Infinity, maxEnd = 0;
+    spans.forEach(s => {
+      const start = s.startMs || s.offsetMs || 0;
+      const end = start + (s.durationMs || 0);
+      if (start < minStart) minStart = start;
+      if (end > maxEnd) maxEnd = end;
+    });
+    // Also include heap ops in timeline
+    const heapOps = t.heapMutations || t.heapOperations || [];
+    heapOps.forEach(h => {
+      const start = h.timeMs || h.offsetMs || 0;
+      const end = start + (h.durationMs || 0.1);
+      if (start < minStart) minStart = start;
+      if (end > maxEnd) maxEnd = end;
+    });
+
+    const totalDur = maxEnd - minStart || 1;
+
+    let html = '';
+
+    // Render function spans
+    spans.forEach(s => {
+      const start = s.startMs || s.offsetMs || 0;
+      const dur = s.durationMs || 0;
+      const left = ((start - minStart) / totalDur * 100);
+      const width = Math.max((dur / totalDur * 100), 0.5);
+      const depth = s.depth || 0;
+      const indent = depth * 16;
+      const name = s.function || s.name || s.functionName || 'unknown';
+
+      html += `<div class="waterfall-row">
+        <div class="wf-label" style="padding-left:${indent}px" title="${escHtml(name)}">${escHtml(name)}</div>
+        <div class="wf-track">
+          <div class="wf-bar fn" style="left:${left}%;width:${width}%" title="${escHtml(name)}: ${fmtDuration(dur)} ms">
+            ${dur >= totalDur * 0.05 ? fmtDuration(dur) + ' ms' : ''}
+          </div>
+        </div>
+      </div>`;
+    });
+
+    // Render heap ops as bars
+    heapOps.forEach(h => {
+      const start = h.timeMs || h.offsetMs || 0;
+      const dur = h.durationMs || totalDur * 0.005;
+      const left = ((start - minStart) / totalDur * 100);
+      const width = Math.max((dur / totalDur * 100), 0.3);
+      const op = h.operation || h.op || '?';
+      const key = h.key || '?';
+      const label = op + ' ' + key;
+
+      html += `<div class="waterfall-row">
+        <div class="wf-label" style="padding-left:8px;color:var(--purple)" title="${escHtml(label)}">${escHtml(label)}</div>
+        <div class="wf-track">
+          <div class="wf-bar heap" style="left:${left}%;width:${width}%" title="${escHtml(label)}"></div>
+        </div>
+      </div>`;
+    });
+
+    // Time axis
+    const steps = 5;
+    let axis = '<div class="wf-time-axis">';
+    for (let i = 0; i <= steps; i++) {
+      axis += `<span>${fmtDuration(minStart + (totalDur * i / steps))} ms</span>`;
+    }
+    axis += '</div>';
+
+    container.innerHTML = html + axis;
+  }
+
+  // ── Render: Heap Mutations Table ──
+  function renderHeapTable(t) {
+    const ops = t.heapMutations || t.heapOperations || [];
+    const tbody = $('heapTableBody');
+    if (!ops.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px">No heap operations recorded</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ops.map(o => {
+      const op = o.operation || o.op || '?';
+      const opClass = op === 'PUBLISH' ? 'op-publish' : op === 'GET' ? 'op-get' : op === 'REMOVE' ? 'op-remove' : '';
+      return `<tr>
+        <td class="ts-col">${fmtDuration(o.timeMs || o.offsetMs || 0)} ms</td>
+        <td class="${opClass}">${escHtml(op)}</td>
+        <td>${escHtml(o.key || '--')}</td>
+        <td style="color:var(--text-dim)">${escHtml(o.type || o.valueType || '--')}</td>
+        <td style="color:var(--text-dim)">${o.version != null ? o.version : '--'}</td>
+        <td>${escHtml(o.byFunction || o.function || '--')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Replay ──
+  window.replayRequest = async function() {
+    if (!currentRequestId) return;
+    const btn = $('replayBtn');
+    const result = $('replayResult');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> replaying...';
+    result.style.display = 'none';
+
+    try {
+      const data = await api('POST', '/admin/replay/' + encodeURIComponent(currentRequestId));
+      result.textContent = JSON.stringify(data, null, 2);
+      result.className = 'replay-result active success';
+    } catch (e) {
+      result.textContent = 'Replay failed: ' + e.message;
+      result.className = 'replay-result active error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'replay request';
+    }
+  };
+
+  // ── Sort ──
+  window.sortBy = function(field) {
+    if (sortField === field) {
+      sortAsc = !sortAsc;
+    } else {
+      sortField = field;
+      sortAsc = field === 'requestId' || field === 'entryFunction' || field === 'group';
+    }
+    renderTraceTable();
+  };
+
+  // ── Navigation ──
+  window.__showTrace = function(requestId) {
+    // Check if searching by ID
+    const idFilter = $('filterRequestId').value.trim();
+    if (idFilter && idFilter === requestId) {
+      fetchTraceDetail(requestId);
+      return;
+    }
+    fetchTraceDetail(requestId);
+  };
+
+  window.showDashboard = function() {
+    detailView.classList.remove('active');
+    dashboardView.style.display = 'block';
+    currentTrace = null;
+    currentRequestId = null;
+  };
+
+  // ── Filters ──
+  window.applyFilters = function() {
+    const reqId = $('filterRequestId').value.trim();
+    if (reqId) {
+      fetchTraceDetail(reqId);
+      return;
+    }
+    fetchFiltered();
+  };
+
+  window.clearFilters = function() {
+    $('filterRequestId').value = '';
+    $('filterGroup').value = '';
+    $('filterFunction').value = '';
+    $('filterMinDuration').value = '';
+    $('filterErrors').value = '';
+    fetchAll();
+  };
+
+  // Enter key triggers search
+  document.querySelectorAll('.filter-bar input').forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+  });
+
+  // ── Auto-refresh ──
+  function startRefresh() {
+    stopRefresh();
+    if ($('autoRefresh').checked) {
+      refreshTimer = setInterval(() => {
+        if (!currentTrace) fetchAll();
+      }, 5000);
+    }
+  }
+
+  function stopRefresh() {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  }
+
+  $('autoRefresh').addEventListener('change', () => {
+    if ($('autoRefresh').checked) startRefresh(); else stopRefresh();
+  });
+
+  // ── Init ──
+  fetchAll();
+  startRefresh();
+
+})();
+</script>
+</body>
+</html>
