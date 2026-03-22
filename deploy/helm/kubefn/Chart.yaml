@@ -6,7 +6,7 @@ appVersion: "0.2.0"
 type: application
 home: https://kubefn.com
 sources:
-  - https://github.com/spranab/KubeFn
+  - https://github.com/kubefn/kubefn
 maintainers:
   - name: Pranab Sarkar
     email: mail@pranab.co.in

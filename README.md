@@ -64,7 +64,7 @@ KubeFn breaks the triangle. Functions are independently deployable but collabora
 ### 1. Clone and build
 
 ```bash
-git clone https://github.com/spranab/KubeFn.git
+git clone https://github.com/kubefn/kubefn.git
 cd KubeFn
 ./gradlew build
 ./gradlew :kubefn-runtime:shadowJar :examples:checkout-pipeline:jar
@@ -150,7 +150,7 @@ repositories {
     maven { url = uri("https://jitpack.io") }
 }
 dependencies {
-    compileOnly("com.github.spranab.KubeFn:kubefn-api:v0.3.0")
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
 }
 ```
 
@@ -163,7 +163,7 @@ dependencies {
     </repository>
 </repositories>
 <dependency>
-    <groupId>com.github.spranab.KubeFn</groupId>
+    <groupId>com.github.kubefn.kubefn</groupId>
     <artifactId>kubefn-api</artifactId>
     <version>v0.3.0</version>
     <scope>provided</scope>

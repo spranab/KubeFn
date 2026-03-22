@@ -36,13 +36,13 @@ publishing {
                 }
                 developers {
                     developer {
-                        id.set("spranab")
+                        id.set("kubefn")
                         name.set("Pranab Sarkar")
                         email.set("mail@pranab.co.in")
                     }
                 }
                 scm {
-                    url.set("https://github.com/spranab/KubeFn")
+                    url.set("https://github.com/kubefn/kubefn")
                 }
             }
         }
@@ -52,9 +52,9 @@ publishing {
         // Publish to GitHub Packages
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/spranab/KubeFn")
+            url = uri("https://maven.pkg.github.com/kubefn/kubefn")
             credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: "spranab"
+                username = System.getenv("GITHUB_ACTOR") ?: "kubefn"
                 password = System.getenv("GITHUB_TOKEN") ?: ""
             }
         }

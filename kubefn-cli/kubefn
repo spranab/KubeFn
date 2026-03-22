@@ -97,7 +97,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.spranab.KubeFn:kubefn-api:v0.3.0")
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
 }
 
 tasks.withType<JavaCompile> {
@@ -165,7 +165,7 @@ JAVA
 
     <dependencies>
         <dependency>
-            <groupId>com.github.spranab.KubeFn</groupId>
+            <groupId>com.github.kubefn.kubefn</groupId>
             <artifactId>kubefn-api</artifactId>
             <version>v0.3.0</version>
             <scope>provided</scope>
@@ -200,12 +200,12 @@ MAVEN
     echo ""
     echo -e "  ${CYAN}Gradle:${NC}"
     echo '    repositories { maven { url = uri("https://jitpack.io") } }'
-    echo '    compileOnly("com.github.spranab.KubeFn:kubefn-api:v0.3.0")'
+    echo '    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")'
     echo ""
     echo -e "  ${CYAN}Maven:${NC}"
     echo "    <repository><id>jitpack.io</id><url>https://jitpack.io</url></repository>"
     echo "    <dependency>"
-    echo "      <groupId>com.github.spranab.KubeFn</groupId>"
+    echo "      <groupId>com.github.kubefn.kubefn</groupId>"
     echo "      <artifactId>kubefn-api</artifactId>"
     echo "      <version>v0.3.0</version>"
     echo "      <scope>provided</scope>"
