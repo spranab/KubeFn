@@ -9,6 +9,8 @@ fabric8 = "7.2.0"
 josdk = "5.1.0"
 junit = "5.11.4"
 micrometer = "1.14.4"
+opentelemetry = "1.46.0"
+resilience4j = "2.3.0"
 
 [libraries]
 netty-all = { module = "io.netty:netty-all", version.ref = "netty" }
@@ -22,6 +24,10 @@ fabric8-crd-generator = { module = "io.fabric8:crd-generator-apt", version.ref =
 josdk-framework = { module = "io.javaoperatorsdk:operator-framework", version.ref = "josdk" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+opentelemetry-api = { module = "io.opentelemetry:opentelemetry-api", version.ref = "opentelemetry" }
+opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
+opentelemetry-exporter-logging = { module = "io.opentelemetry:opentelemetry-exporter-logging", version.ref = "opentelemetry" }
+resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
 
 [bundles]
 jackson = ["jackson-databind", "jackson-jsr310"]

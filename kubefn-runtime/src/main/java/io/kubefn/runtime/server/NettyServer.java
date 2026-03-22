@@ -2,6 +2,7 @@ package io.kubefn.runtime.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kubefn.runtime.config.RuntimeConfig;
+import io.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import io.kubefn.runtime.routing.FunctionRouter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -20,8 +21,8 @@ import java.util.concurrent.Executors;
  * The organism's nervous system. A Netty HTTP server that receives requests
  * and dispatches them to function handlers on virtual threads.
  *
- * <p>Event loops handle I/O only. User function code NEVER runs on event loops.
- * Virtual threads handle blocking work naturally.
+ * <p>v0.2: Integrated with OpenTelemetry tracing, circuit breakers,
+ * and revision-pinned execution.
  */
 public class NettyServer {
 
@@ -31,25 +32,22 @@ public class NettyServer {
     private final FunctionRouter router;
     private final ObjectMapper objectMapper;
     private final ExecutorService functionExecutor;
+    private final FunctionCircuitBreaker circuitBreaker;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
 
-    public NettyServer(RuntimeConfig config, FunctionRouter router) {
+    public NettyServer(RuntimeConfig config, FunctionRouter router,
+                       FunctionCircuitBreaker circuitBreaker) {
         this.config = config;
         this.router = router;
+        this.circuitBreaker = circuitBreaker;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.findAndRegisterModules();
-
-        // Virtual thread executor for function invocation
-        // Functions can freely block (JDBC, HTTP, file IO) without starving the pool
         this.functionExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
-    /**
-     * Start the HTTP server. Blocks until the server is bound.
-     */
     public void start() throws InterruptedException {
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
@@ -64,7 +62,7 @@ public class NettyServer {
                         pipeline.addLast(new HttpServerCodec());
                         pipeline.addLast(new HttpObjectAggregator(config.maxRequestBodyBytes()));
                         pipeline.addLast(new RequestDispatcher(
-                                router, functionExecutor, objectMapper, config));
+                                router, functionExecutor, objectMapper, config, circuitBreaker));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 1024)
@@ -73,45 +71,35 @@ public class NettyServer {
         ChannelFuture future = bootstrap.bind(config.port()).sync();
         serverChannel = future.channel();
 
-        log.info("╔══════════════════════════════════════════════╗");
-        log.info("║       KubeFn Runtime — Live Application Fabric      ║");
-        log.info("╠══════════════════════════════════════════════╣");
-        log.info("║  HTTP server listening on port {}            ║", config.port());
-        log.info("║  Admin server on port {}                     ║", config.adminPort());
-        log.info("║  Functions dir: {}  ║", config.functionsDir());
-        log.info("║  Max concurrency/group: {}                  ║", config.maxConcurrencyPerGroup());
-        log.info("║  Virtual threads: enabled                           ║");
-        log.info("╚══════════════════════════════════════════════╝");
+        log.info("╔════════════════════════════════════════════════════╗");
+        log.info("║   KubeFn v0.2 — Live Application Fabric            ║");
+        log.info("║   Memory-Continuous Architecture                    ║");
+        log.info("╠════════════════════════════════════════════════════╣");
+        log.info("║  HTTP:  port {}                                    ║", config.port());
+        log.info("║  Admin: port {}                                    ║", config.adminPort());
+        log.info("║  Functions: {}  ║", config.functionsDir());
+        log.info("║  Concurrency/group: {}                             ║", config.maxConcurrencyPerGroup());
+        log.info("║  Virtual threads:  enabled                          ║");
+        log.info("║  Circuit breakers: enabled                          ║");
+        log.info("║  OpenTelemetry:    enabled                          ║");
+        log.info("║  Revision pinning: enabled                          ║");
+        log.info("╚════════════════════════════════════════════════════╝");
     }
 
-    /**
-     * Gracefully shut down the server. Drains in-flight requests.
-     */
     public void stop() {
         log.info("Shutting down KubeFn runtime...");
-        if (serverChannel != null) {
-            serverChannel.close();
-        }
-        if (bossGroup != null) {
-            bossGroup.shutdownGracefully();
-        }
-        if (workerGroup != null) {
-            workerGroup.shutdownGracefully();
-        }
+        if (serverChannel != null) serverChannel.close();
+        if (bossGroup != null) bossGroup.shutdownGracefully();
+        if (workerGroup != null) workerGroup.shutdownGracefully();
         functionExecutor.shutdown();
         log.info("KubeFn runtime stopped.");
     }
 
-    /**
-     * Block until the server channel closes.
-     */
     public void awaitTermination() throws InterruptedException {
-        if (serverChannel != null) {
-            serverChannel.closeFuture().sync();
-        }
+        if (serverChannel != null) serverChannel.closeFuture().sync();
     }
 
     public FunctionRouter router() { return router; }
     public ObjectMapper objectMapper() { return objectMapper; }
-    public ExecutorService functionExecutor() { return functionExecutor; }
+    public FunctionCircuitBreaker circuitBreaker() { return circuitBreaker; }
 }

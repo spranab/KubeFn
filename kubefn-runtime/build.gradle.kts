@@ -24,6 +24,10 @@ dependencies {
     implementation(libs.caffeine)
     implementation(libs.bundles.logging)
     implementation(libs.micrometer.core)
+    implementation(libs.opentelemetry.api)
+    implementation(libs.opentelemetry.sdk)
+    implementation(libs.opentelemetry.exporter.logging)
+    implementation(libs.resilience4j.circuitbreaker)
 
     testImplementation(libs.bundles.testing)
 }
