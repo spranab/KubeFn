@@ -27,7 +27,7 @@ abstract: >-
   KubeFn decouples these concerns, enabling independently
   deployable functions to execute over a shared in-memory
   object graph while preserving compositional semantics and
-  practical isolation. We implement this model across three
+  practical isolation. KubeFn implements this model across three
   runtimes (JVM, Python, Node.js) and demonstrate 4-100x
   latency reduction compared to equivalent microservice
   architectures in full HTTP request-response benchmarks.

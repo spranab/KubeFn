@@ -12,7 +12,7 @@ ORCID: 0009-0009-8683-1481
 
 The dominant abstraction in serverless and microservice composition conflates deployment isolation with data representation boundaries: each independently deployable unit occupies a separate address space, and every inter-unit data flow requires serialization, network transit, and deserialization. In large service graphs, this serialization tax consumes 30--40% of total CPU cycles and dominates end-to-end latency. The alternative---monolithic deployment---eliminates serialization but sacrifices independent deployability, the primary operational advantage of microservices.
 
-We show that deployment isolation and data representation boundaries can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics and practical isolation. We introduce **Memory-Continuous Architecture (MCA)**, a design pattern in which co-located functions share a single runtime process heap and communicate through direct object references rather than serialized byte streams. We present the **HeapExchange**, a zero-copy shared object graph with versioned schema evolution, capacity governance, and causal audit logging. We implement MCA across three language runtimes---JVM (classloader isolation, virtual threads, Netty), CPython (shared interpreter, `importlib` hot-loading), and Node.js (V8 isolate, `require`-based module loading)---demonstrating that the pattern is language-agnostic.
+This paper shows that deployment isolation and data representation boundaries can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics and practical isolation. This paper introduces **Memory-Continuous Architecture (MCA)**, a design pattern in which co-located functions share a single runtime process heap and communicate through direct object references rather than serialized byte streams. This paper presents the **HeapExchange**, a zero-copy shared object graph with versioned schema evolution, capacity governance, and causal audit logging. This work implements MCA across three language runtimes---JVM (classloader isolation, virtual threads, Netty), CPython (shared interpreter, `importlib` hot-loading), and Node.js (V8 isolate, `require`-based module loading)---demonstrating that the pattern is language-agnostic.
 
 In full HTTP-cycle benchmarks against estimated microservice baselines, MCA achieves 3.8ms average latency for a 7-function JVM pipeline (4--18x improvement), 1.0ms for a 3-function Python ML inference pipeline (6--30x), and 0.3ms for a 3-function Node.js API gateway (20--100x). We discuss limitations including shared GC pauses, shared failure domains, and the absence of cross-runtime object sharing. KubeFn, the open-source reference implementation, integrates with Kubernetes through custom resource definitions and a reconciliation-loop operator.
 
@@ -36,9 +36,9 @@ Microservices solve the deployment problem but create the serialization problem.
 
 ### 1.3 Thesis
 
-We argue that the conflation of deployment boundaries with memory boundaries is not a necessary property of independently deployable systems but rather an artifact of the container-per-service deployment model that became the default with the rise of Docker and Kubernetes. Specifically:
+I argue that the conflation of deployment boundaries with memory boundaries is not a necessary property of independently deployable systems but rather an artifact of the container-per-service deployment model that became the default with the rise of Docker and Kubernetes. Specifically:
 
-> *The dominant abstraction in serverless composition conflates deployment isolation with data representation boundaries. We show these concerns can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics and practical isolation.*
+> *The dominant abstraction in serverless composition conflates deployment isolation with data representation boundaries. This paper shows these concerns can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics and practical isolation.*
 
 This decoupling is achievable because the properties that developers actually require from "independent deployment"---independent versioning, independent release, independent rollback, per-function routing and observability---do not inherently require process-level isolation. They require *logical* isolation of code loading and lifecycle management, which can be provided within a single process through classloader hierarchies (JVM), module namespaces (Python), or module cache partitioning (Node.js).
 
@@ -377,21 +377,21 @@ KubeFn integrates with Kubernetes through two custom resource definitions and a 
 
 ## 6. Evaluation
 
-We evaluate MCA's latency characteristics across all three runtime implementations using realistic multi-function pipelines. All benchmarks measure full HTTP request-response cycles, including network transit, request parsing, routing, function execution, heap operations, and response serialization. We compare against estimated equivalent microservice latencies based on published intra-cluster HTTP overhead measurements.
+This work evaluates MCA's latency characteristics across all three runtime implementations using realistic multi-function pipelines. All benchmarks measure full HTTP request-response cycles, including network transit, request parsing, routing, function execution, heap operations, and response serialization. I compare against estimated equivalent microservice latencies based on published intra-cluster HTTP overhead measurements.
 
 ### 6.1 Methodology
 
-**Benchmarking tool.** We use `hey` [14], a widely-used HTTP load generator. All benchmarks run 1,000 requests with 10 concurrent connections from the same machine to eliminate network variability. Results are averaged over 5 independent runs.
+**Benchmarking tool.** I use `hey` [14], a widely-used HTTP load generator. All benchmarks run 1,000 requests with 10 concurrent connections from the same machine to eliminate network variability. Results are averaged over 5 independent runs.
 
 **Environment.** All benchmarks run on a single machine (Apple M-series, 16GB RAM) to isolate runtime performance from network topology. KubeFn runtimes run as standalone processes (not in Kubernetes) to eliminate orchestrator overhead from the measurement.
 
-**Microservice baseline.** We estimate equivalent microservice latency as N * H, where N is the number of functions in the pipeline and H is the per-hop latency. We use two baseline ranges:
+**Microservice baseline.** We estimate equivalent microservice latency as N * H, where N is the number of functions in the pipeline and H is the per-hop latency. I use two baseline ranges:
 - **Intra-pod (localhost)**: 2ms per hop (optimistic: same-node, loopback interface)
 - **Cross-node**: 5--10ms per hop (realistic: intra-cluster with service mesh)
 
-These baselines are conservative; production microservice hops frequently exceed 10ms due to serialization, service mesh overhead, retries, and connection establishment. However, we note explicitly that **these are estimated baselines, not measured deployments of equivalent microservice systems**. We did not implement the same business logic as separate microservices and benchmark them end-to-end. The speedup ratios should therefore be interpreted as estimates of the improvement attributable to eliminating serialization and network hops, not as measured head-to-head comparisons.
+These baselines are conservative; production microservice hops frequently exceed 10ms due to serialization, service mesh overhead, retries, and connection establishment. However, I note explicitly that **these are estimated baselines, not measured deployments of equivalent microservice systems**. We did not implement the same business logic as separate microservices and benchmark them end-to-end. The speedup ratios should therefore be interpreted as estimates of the improvement attributable to eliminating serialization and network hops, not as measured head-to-head comparisons.
 
-**What we measure.** Full HTTP cycle: the `hey` client sends an HTTP request to the KubeFn runtime, which routes it through the multi-function pipeline, and returns the response. The measurement includes Netty request parsing, router resolution, function dispatch, HeapExchange operations, response serialization, and Netty response writing.
+**What I measure.** Full HTTP cycle: the `hey` client sends an HTTP request to the KubeFn runtime, which routes it through the multi-function pipeline, and returns the response. The measurement includes Netty request parsing, router resolution, function dispatch, HeapExchange operations, response serialization, and Netty response writing.
 
 **What we do not measure.** Cold start time, JIT warmup (benchmarks run after a 100-request warmup), or Kubernetes orchestration latency. These costs are orthogonal to MCA's value proposition.
 
@@ -451,13 +451,13 @@ These baselines are conservative; production microservice hops frequently exceed
 
 ### 6.5 Hot-Swap Evaluation
 
-We evaluated hot-swap under load by continuously sending requests (10 concurrent connections) while replacing a function in the JVM checkout pipeline. During a 200-request demo run, the drain manager successfully held in-flight requests while the new classloader was loaded, and the router atomically switched to the new version with zero dropped requests. Average swap time was under 50ms with no in-flight requests and under 500ms under load (waiting for drain).
+This work evaluatesd hot-swap under load by continuously sending requests (10 concurrent connections) while replacing a function in the JVM checkout pipeline. During a 200-request demo run, the drain manager successfully held in-flight requests while the new classloader was loaded, and the router atomically switched to the new version with zero dropped requests. Average swap time was under 50ms with no in-flight requests and under 500ms under load (waiting for drain).
 
-**Caveat.** This evaluation was conducted with a small number of requests (200) on a single machine. We have not yet validated hot-swap behavior under production-scale load (thousands of concurrent connections, sustained throughput). The drain timeout, classloader GC timing, and interaction with JIT deoptimization under sustained load remain to be characterized. We consider production-scale hot-swap evaluation necessary future work.
+**Caveat.** This evaluation was conducted with a small number of requests (200) on a single machine. I have not yet validated hot-swap behavior under production-scale load (thousands of concurrent connections, sustained throughput). The drain timeout, classloader GC timing, and interaction with JIT deoptimization under sustained load remain to be characterized. We consider production-scale hot-swap evaluation necessary future work.
 
 ### 6.6 Threats to Validity
 
-**Estimated baselines, not measured comparisons.** The most significant threat to our evaluation is that the microservice baselines are estimated from published per-hop latency data, not measured from deployed equivalent microservice systems running the same business logic. A proper comparison would require implementing the same function pipelines as independent microservices, deploying them on the same hardware (or equivalent cloud instances), and benchmarking end-to-end. We report speedup as a range (e.g., 4--18x) to partially account for this uncertainty, but the true speedup for any specific workload depends on factors we did not measure: payload size, serialization format, service mesh configuration, and network conditions.
+**Estimated baselines, not measured comparisons.** The most significant threat to the evaluation is that the microservice baselines are estimated from published per-hop latency data, not measured from deployed equivalent microservice systems running the same business logic. A proper comparison would require implementing the same function pipelines as independent microservices, deploying them on the same hardware (or equivalent cloud instances), and benchmarking end-to-end. I report speedup as a range (e.g., 4--18x) to partially account for this uncertainty, but the true speedup for any specific workload depends on factors we did not measure: payload size, serialization format, service mesh configuration, and network conditions.
 
 **Single-machine benchmarks.** All benchmarks run on a single machine, which eliminates network variability but does not capture production network conditions, container scheduling jitter, or NUMA effects on multi-socket servers.
 
@@ -501,7 +501,7 @@ For environments requiring stronger isolation (multi-tenant platforms, regulator
 
 A shared JVM heap means shared garbage collection. When the GC performs a stop-the-world pause, *all* co-located functions are paused simultaneously, regardless of which function generated the garbage. This is a meaningful concern for latency-sensitive workloads.
 
-The severity depends on the GC algorithm. With the G1 collector (JDK default), mixed GC pauses of 10--50ms are common under high allocation rates. With ZGC (available since JDK 15, production-ready since JDK 21), pause times are bounded to sub-millisecond regardless of heap size, because ZGC performs concurrent relocation. KubeFn recommends ZGC for production deployments (`-XX:+UseZGC`), and our benchmarks use ZGC.
+The severity depends on the GC algorithm. With the G1 collector (JDK default), mixed GC pauses of 10--50ms are common under high allocation rates. With ZGC (available since JDK 15, production-ready since JDK 21), pause times are bounded to sub-millisecond regardless of heap size, because ZGC performs concurrent relocation. KubeFn recommends ZGC for production deployments (`-XX:+UseZGC`), and the benchmarks use ZGC.
 
 However, even with ZGC, a function that allocates aggressively can increase GC overhead (concurrent GC cycles consume CPU) and degrade throughput for all co-located functions. The HeapGuard's capacity limits provide a coarse-grained mitigation: by bounding the number of objects in the HeapExchange, the guard limits the contribution of shared state to GC pressure. Per-function allocation tracking and throttling is an area for future work.
 
@@ -553,7 +553,7 @@ Future work includes a schema registry integrated with the Kubernetes operator (
 
 ### 8.5 No Formal Verification of Isolation Properties
 
-We claim that classloader isolation provides practical isolation between function groups: each group has its own namespace, its own dependency versions, and its classloader can be discarded independently. However, we have not formally verified these isolation properties. Known edge cases include:
+We claim that classloader isolation provides practical isolation between function groups: each group has its own namespace, its own dependency versions, and its classloader can be discarded independently. However, I have not formally verified these isolation properties. Known edge cases include:
 - Static fields in classes loaded by the parent classloader (e.g., `java.lang.System` properties) are shared across all function groups.
 - JNI libraries loaded via `System.loadLibrary` are process-global and cannot be loaded by multiple classloaders.
 - `ThreadLocal` values set by one function group persist on carrier threads and may leak to other groups if not cleaned up.
@@ -562,7 +562,7 @@ Formal verification of classloader isolation boundaries, possibly using a model 
 
 ### 8.6 Production Deployment Data
 
-All evaluation data in this paper comes from single-machine benchmarks with synthetic workloads. We do not yet have data from production deployments handling real user traffic. Production environments introduce factors absent from our benchmarks: variable payload sizes, bursty traffic patterns, interactions with Kubernetes scheduling and resource limits, GC behavior under sustained multi-hour load, and classloader leak accumulation over days of hot-swap cycles.
+All evaluation data in this paper comes from single-machine benchmarks with synthetic workloads. We do not yet have data from production deployments handling real user traffic. Production environments introduce factors absent from the benchmarks: variable payload sizes, bursty traffic patterns, interactions with Kubernetes scheduling and resource limits, GC behavior under sustained multi-hour load, and classloader leak accumulation over days of hot-swap cycles.
 
 We consider production deployment validation essential for establishing MCA's practical viability and plan to pursue it through early-adopter partnerships.
 
@@ -582,7 +582,7 @@ The runtime has complete visibility into function call graphs, heap access patte
 
 ## 9. Conclusion
 
-Memory-Continuous Architecture addresses a structural inefficiency in microservice systems: the conflation of deployment boundaries with memory boundaries. We have shown that these concerns can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics---independent versioning, independent release, per-function routing, and per-function observability.
+Memory-Continuous Architecture addresses a structural inefficiency in microservice systems: the conflation of deployment boundaries with memory boundaries. I have shown that these concerns can be decoupled, enabling independently deployable functions to execute over a shared in-memory object graph while preserving compositional semantics---independent versioning, independent release, per-function routing, and per-function observability.
 
 The HeapExchange provides a typed, versioned, governed zero-copy data plane with capacity limits, leak detection, stale eviction, and causal audit logging. The multi-runtime implementation across JVM, CPython, and Node.js demonstrates that MCA is a language-agnostic architectural pattern, not a JVM-specific optimization.
 
@@ -590,7 +590,7 @@ Benchmarks show 4--18x latency improvement for JVM pipelines, 6--30x for Python 
 
 MCA is not a replacement for microservices. It is a third option between monoliths and microservices, applicable when functions share trust boundaries and compose tightly in request processing. The trust model is explicit: shared heap implies shared trust, shared garbage collection, and shared failure domain. Cross-boundary communication continues to use standard microservice protocols.
 
-Compared to recent work on optimized serverless runtimes---FAASM [15], Nightcore [16], Cloudburst [17], Boki [18], and SAND [19]---MCA's distinguishing contribution is zero-copy object sharing without serialization across independently deployable functions, combined with multi-runtime support, declarative schema evolution, and hot-swap with drain management. We have been candid about the limitations: shared GC pauses, shared failure domains, no cross-runtime object sharing, and the absence of production deployment data. These limitations define the research agenda for future work.
+Compared to recent work on optimized serverless runtimes---FAASM [15], Nightcore [16], Cloudburst [17], Boki [18], and SAND [19]---MCA's distinguishing contribution is zero-copy object sharing without serialization across independently deployable functions, combined with multi-runtime support, declarative schema evolution, and hot-swap with drain management. I have been candid about the limitations: shared GC pauses, shared failure domains, no cross-runtime object sharing, and the absence of production deployment data. These limitations define the research agenda for future work.
 
 KubeFn, the open-source reference implementation, is available at https://kubefn.com and https://github.com/kubefn/kubefn. It integrates with Kubernetes through custom resource definitions, supports hot-swap deployment without restart, and includes production-grade resilience primitives (circuit breakers, drain management, timeouts, fallbacks) and observability (causal introspection, OpenTelemetry tracing, Prometheus metrics).
 
