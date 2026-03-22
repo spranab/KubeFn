@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KubeFn — Live Application Fabric for Kubernetes</title>
-    <meta name="description" content="Deploy like microservices. Perform like a monolith. Evolve like a living organism. 131x faster than microservices with zero-copy shared memory.">
+    <meta name="description" content="Deploy like microservices. Perform like a monolith. 4-100x faster with zero-copy shared memory. JVM, Python, Node.js.">
     <meta property="og:title" content="KubeFn — Live Application Fabric">
-    <meta property="og:description" content="Memory-Continuous Architecture for Kubernetes. 131x faster than microservices.">
+    <meta property="og:description" content="Memory-Continuous Architecture. 4-100x faster than microservices. JVM, Python, Node.js.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kubefn.com">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
@@ -827,6 +827,28 @@
     </section>
 
     <!-- Footer -->
+    <!-- Paper -->
+    <section style="padding:50px 0;text-align:center;background:linear-gradient(180deg,var(--bg) 0%,#0f172a 100%)">
+        <div class="container">
+            <h2>Research Paper</h2>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:650px;margin:0 auto;text-align:left">
+                <div style="font-size:15px;font-weight:700;margin-bottom:8px">Decoupling Deployment Boundaries from Memory Boundaries in Function Composition</div>
+                <div style="font-size:13px;color:var(--text-dim);margin-bottom:12px">Pranab Sarkar &middot; March 2026 &middot; Preprint</div>
+                <p style="font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:14px">
+                    The dominant abstraction in serverless composition conflates deployment isolation with data representation boundaries. This paper introduces Memory-Continuous Architecture — a runtime model that decouples these concerns, enabling independently deployable functions to share in-memory object graphs with zero serialization.
+                </p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <a href="https://doi.org/10.5281/zenodo.19161471" class="btn btn-primary" style="font-size:13px;padding:8px 16px">Read Paper (DOI)</a>
+                    <a href="https://github.com/kubefn/kubefn/blob/main/docs/kubefn-whitepaper.pdf" class="btn btn-secondary" style="font-size:13px;padding:8px 16px">PDF</a>
+                    <a href="https://github.com/kubefn/kubefn" class="btn btn-secondary" style="font-size:13px;padding:8px 16px">Source Code</a>
+                </div>
+                <div style="margin-top:12px;font-size:11px;color:var(--text-dim);font-family:'SF Mono',monospace">
+                    DOI: 10.5281/zenodo.19161471 &middot; ORCID: 0009-0009-8683-1481
+                </div>
+            </div>
+        </div>
+    </section>
+
     <footer>
         <div class="container">
             <p style="margin-bottom: 8px;"><strong>KubeFn</strong> — Live Application Fabric for Memory-Continuous Architecture</p>
@@ -834,11 +856,12 @@
                 <a href="https://github.com/kubefn/kubefn">GitHub</a> &middot;
                 <a href="https://central.sonatype.com/artifact/com.kubefn/kubefn-api">Maven Central</a> &middot;
                 <a href="https://github.com/kubefn/kubefn/tree/main/deploy/helm">Helm Chart</a> &middot;
-                <a href="https://github.com/kubefn/kubefn/tree/main/examples">Examples</a>
+                <a href="https://github.com/kubefn/kubefn/tree/main/examples">Examples</a> &middot;
+                <a href="https://doi.org/10.5281/zenodo.19161471">Paper</a>
             </p>
             <p>
                 <a href="https://pranab.co.in">Built by Pranab Sarkar</a> &middot;
-                MIT License &middot; <a href="https://doi.org/10.5281/zenodo.19161471">DOI: 10.5281/zenodo.19161471</a>
+                MIT License
             </p>
         </div>
     </footer>
