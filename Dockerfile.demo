@@ -1,24 +1,10 @@
 FROM eclipse-temurin:21-jre-alpine
-
-LABEL maintainer="Pranab Sarkar <mail@pranab.co.in>"
-LABEL org.opencontainers.image.title="KubeFn Runtime"
-LABEL org.opencontainers.image.description="Live Application Fabric — Memory-Continuous Architecture"
-
 RUN addgroup -S kubefn && adduser -S kubefn -G kubefn
-RUN mkdir -p /var/kubefn/functions/hello-service && chown -R kubefn:kubefn /var/kubefn
-
+RUN mkdir -p /var/kubefn/functions/hello-service /var/kubefn/functions/checkout-pipeline && chown -R kubefn:kubefn /var/kubefn
 COPY kubefn-runtime/build/libs/kubefn-runtime-0.1.0-SNAPSHOT-all.jar /opt/kubefn/runtime.jar
 COPY examples/hello-function/build/libs/hello-function-0.1.0-SNAPSHOT.jar /var/kubefn/functions/hello-service/
-
+COPY examples/checkout-pipeline/build/libs/checkout-pipeline-0.1.0-SNAPSHOT.jar /var/kubefn/functions/checkout-pipeline/
 USER kubefn
 EXPOSE 8080 8081
-
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget -q -O- http://localhost:8081/healthz || exit 1
-
-ENTRYPOINT ["java", \
-    "--enable-preview", \
-    "-XX:+UseZGC", \
-    "-XX:+DisableAttachMechanism", \
-    "-Djava.security.egd=file:/dev/./urandom", \
-    "-jar", "/opt/kubefn/runtime.jar"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 CMD wget -q -O- http://localhost:8081/healthz || exit 1
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+DisableAttachMechanism", "-jar", "/opt/kubefn/runtime.jar"]

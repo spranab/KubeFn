@@ -5,5 +5,6 @@ include(
     "kubefn-runtime",
     "kubefn-operator",
     "kubefn-sdk",
-    "examples:hello-function"
+    "examples:hello-function",
+    "examples:checkout-pipeline"
 )
