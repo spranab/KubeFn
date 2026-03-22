@@ -1,9 +1,9 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: kubefnfunctions.kubefn.io
+  name: kubefnfunctions.kubefn.com
 spec:
-  group: kubefn.io
+  group: kubefn.com
   versions:
     - name: v1alpha1
       served: true

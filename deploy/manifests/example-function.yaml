@@ -6,13 +6,13 @@ metadata:
   name: hello-function-jar
   namespace: kubefn
   labels:
-    kubefn.io/group: hello-service
-    kubefn.io/type: function-jar
+    kubefn.com/group: hello-service
+    kubefn.com/type: function-jar
 binaryData: {}
 # Will be populated by the deploy script
 ---
 # Example CRD instances (for future operator use)
-apiVersion: kubefn.io/v1alpha1
+apiVersion: kubefn.com/v1alpha1
 kind: KubeFnGroup
 metadata:
   name: hello-service
@@ -32,7 +32,7 @@ spec:
     - "-Xmx1536m"
     - "-XX:+UseZGC"
 ---
-apiVersion: kubefn.io/v1alpha1
+apiVersion: kubefn.com/v1alpha1
 kind: KubeFnFunction
 metadata:
   name: greet
@@ -48,7 +48,7 @@ spec:
     configMapRef:
       name: hello-function-jar
 ---
-apiVersion: kubefn.io/v1alpha1
+apiVersion: kubefn.com/v1alpha1
 kind: KubeFnFunction
 metadata:
   name: echo

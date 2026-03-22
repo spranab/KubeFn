@@ -3,6 +3,7 @@ package io.kubefn.runtime.classloader;
 import io.kubefn.api.*;
 import io.kubefn.runtime.context.FunctionGroupContext;
 import io.kubefn.runtime.heap.HeapExchangeImpl;
+import io.kubefn.runtime.lifecycle.DrainManager;
 import io.kubefn.runtime.routing.FunctionEntry;
 import io.kubefn.runtime.routing.FunctionRouter;
 import org.slf4j.Logger;
@@ -37,12 +38,15 @@ public class FunctionLoader {
 
     private final FunctionRouter router;
     private final HeapExchangeImpl heapExchange;
+    private final DrainManager drainManager;
     private final Map<String, FunctionGroupClassLoader> activeClassLoaders = new HashMap<>();
     private final Map<String, FunctionGroupContext> activeContexts = new HashMap<>();
 
-    public FunctionLoader(FunctionRouter router, HeapExchangeImpl heapExchange) {
+    public FunctionLoader(FunctionRouter router, HeapExchangeImpl heapExchange,
+                          DrainManager drainManager) {
         this.router = router;
         this.heapExchange = heapExchange;
+        this.drainManager = drainManager;
     }
 
     /**
@@ -142,6 +146,14 @@ public class FunctionLoader {
         FunctionGroupContext context = activeContexts.remove(groupName);
 
         if (classLoader != null) {
+            // Graceful drain: wait for in-flight requests to complete
+            log.info("Draining group '{}' before unload...", groupName);
+            boolean drained = drainManager.drainAndWait(groupName, 10_000); // 10s timeout
+            if (!drained) {
+                log.warn("Drain timeout for group '{}'. Forcing unload with {} in-flight.",
+                        groupName, drainManager.inFlightCount(groupName));
+            }
+
             // Call lifecycle hooks
             if (context != null) {
                 context.functionRegistry().values().forEach(handler -> {

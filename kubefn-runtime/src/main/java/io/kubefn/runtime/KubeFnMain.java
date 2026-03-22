@@ -4,15 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kubefn.runtime.classloader.FunctionLoader;
 import io.kubefn.runtime.config.RuntimeConfig;
 import io.kubefn.runtime.heap.HeapExchangeImpl;
+import io.kubefn.runtime.lifecycle.DrainManager;
+import io.kubefn.runtime.resilience.FallbackRegistry;
 import io.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import io.kubefn.runtime.routing.FunctionRouter;
 import io.kubefn.runtime.server.AdminHandler;
 import io.kubefn.runtime.server.NettyServer;
 import io.kubefn.runtime.watcher.FunctionWatcher;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -24,42 +24,40 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 
 /**
- * KubeFn Runtime v0.2 — The Living Application Fabric.
- *
- * <p>Boots the organism with:
- * <ul>
- *   <li>HeapExchange (shared object graph fabric)</li>
- *   <li>OpenTelemetry tracing per function invocation</li>
- *   <li>Circuit breakers for failure isolation</li>
- *   <li>Revision-pinned execution contexts</li>
- *   <li>Heap mutation audit log</li>
- *   <li>File watcher for hot-reload</li>
- * </ul>
+ * KubeFn Runtime — Production-grade entry point.
+ * All hardening components are wired together:
+ * HeapGuard, AuditLog, DrainManager, CircuitBreaker,
+ * FallbackRegistry, Metrics, Tracing, Timeout.
  */
 public class KubeFnMain {
 
     private static final Logger log = LoggerFactory.getLogger(KubeFnMain.class);
 
+    private static EventLoopGroup adminBossGroup;
+    private static EventLoopGroup adminWorkerGroup;
+
     public static void main(String[] args) throws Exception {
         log.info("Booting KubeFn organism v0.2...");
 
-        // Load config
         RuntimeConfig config = RuntimeConfig.fromEnv();
 
-        // Create core components
+        // Core components
         HeapExchangeImpl heapExchange = new HeapExchangeImpl();
         FunctionRouter router = new FunctionRouter();
         FunctionCircuitBreaker circuitBreaker = new FunctionCircuitBreaker();
-        FunctionLoader loader = new FunctionLoader(router, heapExchange);
+        FallbackRegistry fallbackRegistry = new FallbackRegistry();
+        DrainManager drainManager = new DrainManager();
+        FunctionLoader loader = new FunctionLoader(router, heapExchange, drainManager);
 
-        // Start main HTTP server with all v0.2 features
-        NettyServer server = new NettyServer(config, router, circuitBreaker);
+        // Start HTTP server with all hardening wired
+        NettyServer server = new NettyServer(
+                config, router, circuitBreaker, fallbackRegistry, drainManager);
         server.start();
 
         // Start admin server
         startAdminServer(config, router, server.objectMapper(), heapExchange, circuitBreaker);
 
-        // Load existing function groups
+        // Load existing functions
         if (Files.exists(config.functionsDir())) {
             loader.loadAll(config.functionsDir());
         } else {
@@ -67,7 +65,7 @@ public class KubeFnMain {
             log.info("Created functions directory: {}", config.functionsDir());
         }
 
-        // Start file watcher for hot-reload
+        // Hot-reload watcher
         FunctionWatcher watcher = new FunctionWatcher(config.functionsDir(), loader);
         Thread.startVirtualThread(watcher);
 
@@ -79,6 +77,9 @@ public class KubeFnMain {
             log.info("Shutdown signal received. Draining organism...");
             watcher.stop();
             server.stop();
+            if (adminBossGroup != null) adminBossGroup.shutdownGracefully();
+            if (adminWorkerGroup != null) adminWorkerGroup.shutdownGracefully();
+            log.info("Organism shut down gracefully.");
         }, "kubefn-shutdown"));
 
         server.awaitTermination();
@@ -88,11 +89,11 @@ public class KubeFnMain {
                                          ObjectMapper objectMapper, HeapExchangeImpl heapExchange,
                                          FunctionCircuitBreaker circuitBreaker)
             throws InterruptedException {
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup(1);
+        adminBossGroup = new NioEventLoopGroup(1);
+        adminWorkerGroup = new NioEventLoopGroup(1);
 
         ServerBootstrap bootstrap = new ServerBootstrap();
-        bootstrap.group(bossGroup, workerGroup)
+        bootstrap.group(adminBossGroup, adminWorkerGroup)
                 .channel(NioServerSocketChannel.class)
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override

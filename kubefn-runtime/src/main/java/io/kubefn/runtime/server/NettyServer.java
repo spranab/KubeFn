@@ -2,6 +2,8 @@ package io.kubefn.runtime.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kubefn.runtime.config.RuntimeConfig;
+import io.kubefn.runtime.lifecycle.DrainManager;
+import io.kubefn.runtime.resilience.FallbackRegistry;
 import io.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import io.kubefn.runtime.routing.FunctionRouter;
 import io.netty.bootstrap.ServerBootstrap;
@@ -18,11 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The organism's nervous system. A Netty HTTP server that receives requests
- * and dispatches them to function handlers on virtual threads.
- *
- * <p>v0.2: Integrated with OpenTelemetry tracing, circuit breakers,
- * and revision-pinned execution.
+ * Production-grade Netty server with all hardening components wired.
  */
 public class NettyServer {
 
@@ -33,16 +31,22 @@ public class NettyServer {
     private final ObjectMapper objectMapper;
     private final ExecutorService functionExecutor;
     private final FunctionCircuitBreaker circuitBreaker;
+    private final FallbackRegistry fallbackRegistry;
+    private final DrainManager drainManager;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
 
     public NettyServer(RuntimeConfig config, FunctionRouter router,
-                       FunctionCircuitBreaker circuitBreaker) {
+                       FunctionCircuitBreaker circuitBreaker,
+                       FallbackRegistry fallbackRegistry,
+                       DrainManager drainManager) {
         this.config = config;
         this.router = router;
         this.circuitBreaker = circuitBreaker;
+        this.fallbackRegistry = fallbackRegistry;
+        this.drainManager = drainManager;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.findAndRegisterModules();
         this.functionExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -62,7 +66,8 @@ public class NettyServer {
                         pipeline.addLast(new HttpServerCodec());
                         pipeline.addLast(new HttpObjectAggregator(config.maxRequestBodyBytes()));
                         pipeline.addLast(new RequestDispatcher(
-                                router, functionExecutor, objectMapper, config, circuitBreaker));
+                                router, functionExecutor, objectMapper, config,
+                                circuitBreaker, fallbackRegistry, drainManager));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 1024)
@@ -79,10 +84,12 @@ public class NettyServer {
         log.info("║  Admin: port {}                                    ║", config.adminPort());
         log.info("║  Functions: {}  ║", config.functionsDir());
         log.info("║  Concurrency/group: {}                             ║", config.maxConcurrencyPerGroup());
-        log.info("║  Virtual threads:  enabled                          ║");
-        log.info("║  Circuit breakers: enabled                          ║");
-        log.info("║  OpenTelemetry:    enabled                          ║");
-        log.info("║  Revision pinning: enabled                          ║");
+        log.info("║  Request timeout:   {}ms                           ║", config.requestTimeoutMs());
+        log.info("║  Virtual threads:   enabled                         ║");
+        log.info("║  Circuit breakers:  enabled                         ║");
+        log.info("║  Drain manager:     enabled                         ║");
+        log.info("║  HeapGuard:         enabled                         ║");
+        log.info("║  OpenTelemetry:     enabled                         ║");
         log.info("╚════════════════════════════════════════════════════╝");
     }
 

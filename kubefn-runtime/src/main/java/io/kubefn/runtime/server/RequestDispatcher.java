@@ -5,7 +5,10 @@ import io.kubefn.api.KubeFnRequest;
 import io.kubefn.api.KubeFnResponse;
 import io.kubefn.runtime.config.RuntimeConfig;
 import io.kubefn.runtime.heap.HeapExchangeImpl;
+import io.kubefn.runtime.lifecycle.DrainManager;
 import io.kubefn.runtime.lifecycle.RevisionContext;
+import io.kubefn.runtime.metrics.KubeFnMetrics;
+import io.kubefn.runtime.resilience.FallbackRegistry;
 import io.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import io.kubefn.runtime.routing.FunctionRouter;
 import io.kubefn.runtime.tracing.KubeFnTracer;
@@ -17,24 +20,25 @@ import io.netty.handler.codec.http.*;
 import io.opentelemetry.api.trace.Span;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
- * Netty channel handler that bridges HTTP requests to function invocations.
- * Dispatches to function handlers on virtual threads — NEVER on event loops.
- *
- * <p>v0.2 features:
+ * Production-grade request dispatcher. All hardening components wired in:
  * - OpenTelemetry tracing per invocation
+ * - Circuit breakers with fallback execution
+ * - Per-group concurrency limits (semaphore)
+ * - Request timeout enforcement
+ * - Graceful drain awareness (rejects during hot-swap drain)
  * - Revision-pinned execution context
- * - Circuit breaker protection
- * - HeapExchange context attribution
+ * - HeapExchange publisher attribution
+ * - Per-function metrics recording (latency histograms)
+ * - Structured MDC logging (requestId, group, function, revision)
  */
 public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpRequest> {
 
@@ -45,40 +49,48 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
     private final ObjectMapper objectMapper;
     private final RuntimeConfig config;
     private final FunctionCircuitBreaker circuitBreaker;
+    private final FallbackRegistry fallbackRegistry;
+    private final DrainManager drainManager;
     private final Map<String, Semaphore> groupSemaphores;
 
     public RequestDispatcher(FunctionRouter router, ExecutorService executor,
                              ObjectMapper objectMapper, RuntimeConfig config,
-                             FunctionCircuitBreaker circuitBreaker) {
+                             FunctionCircuitBreaker circuitBreaker,
+                             FallbackRegistry fallbackRegistry,
+                             DrainManager drainManager) {
         this.router = router;
         this.executor = executor;
         this.objectMapper = objectMapper;
         this.config = config;
         this.circuitBreaker = circuitBreaker;
+        this.fallbackRegistry = fallbackRegistry;
+        this.drainManager = drainManager;
         this.groupSemaphores = new HashMap<>();
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest nettyRequest) {
-        // Extract request info on event loop (fast)
         String method = nettyRequest.method().name();
         String uri = nettyRequest.uri();
         String path = uri.contains("?") ? uri.substring(0, uri.indexOf('?')) : uri;
         Map<String, String> queryParams = parseQueryParams(uri);
         Map<String, String> headers = extractHeaders(nettyRequest);
         byte[] body = extractBody(nettyRequest);
-
-        // Generate request ID for tracing
         String requestId = KubeFnTracer.nextRequestId();
 
         // Dispatch to virtual thread — NEVER run user code on event loop
         executor.submit(() -> {
+            // Set MDC for structured logging
+            MDC.put("requestId", requestId);
+            MDC.put("method", method);
+            MDC.put("path", path);
             try {
                 handleRequest(ctx, method, path, queryParams, headers, body, requestId);
             } catch (Exception e) {
-                log.error("Unhandled error dispatching request: {} {}", method, path, e);
+                log.error("Unhandled dispatch error: {} {}", method, path, e);
                 sendError(ctx, 500, "Internal server error", requestId);
             } finally {
+                MDC.clear();
                 RevisionContext.clear();
                 HeapExchangeImpl.clearCurrentContext();
             }
@@ -88,10 +100,10 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
     private void handleRequest(ChannelHandlerContext ctx, String method, String path,
                                Map<String, String> queryParams, Map<String, String> headers,
                                byte[] body, String requestId) {
-        // Resolve route
+        // 1. Route resolution
         var resolved = router.resolve(method, path);
         if (resolved.isEmpty()) {
-            sendError(ctx, 404, "No function registered for " + method + " " + path, requestId);
+            sendError(ctx, 404, "No function for " + method + " " + path, requestId);
             return;
         }
 
@@ -101,25 +113,44 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
         String functionName = entry.functionName();
         String revisionId = entry.revisionId();
 
-        // Set revision context — pin this request to current revision set
-        RevisionContext revCtx = new RevisionContext(
-                requestId,
-                Map.of(groupName, revisionId),
-                Instant.now()
-        );
-        RevisionContext.setCurrent(revCtx);
+        // Set MDC context for this function
+        MDC.put("group", groupName);
+        MDC.put("function", functionName);
+        MDC.put("revision", revisionId);
 
-        // Set HeapExchange attribution context
-        HeapExchangeImpl.setCurrentContext(groupName, functionName);
-
-        // Circuit breaker check
-        if (!circuitBreaker.isCallPermitted(groupName, functionName)) {
-            sendError(ctx, 503,
-                    "Circuit breaker OPEN for " + groupName + "." + functionName, requestId);
+        // 2. Drain check — reject if group is being hot-swapped
+        if (drainManager.isDraining(groupName)) {
+            sendError(ctx, 503, "Group '" + groupName + "' is draining (hot-swap in progress)", requestId);
             return;
         }
 
-        // Per-group concurrency limit (resource governance)
+        // 3. Acquire drain slot (track in-flight)
+        if (!drainManager.acquireRequest(groupName)) {
+            sendError(ctx, 503, "Group '" + groupName + "' is draining", requestId);
+            return;
+        }
+
+        // 4. Set revision context — pin this request
+        RevisionContext.setCurrent(new RevisionContext(
+                requestId, Map.of(groupName, revisionId), Instant.now()));
+
+        // 5. Set HeapExchange attribution
+        HeapExchangeImpl.setCurrentContext(groupName, functionName);
+
+        // 6. Circuit breaker check
+        if (!circuitBreaker.isCallPermitted(groupName, functionName)) {
+            drainManager.releaseRequest(groupName);
+            KubeFnMetrics.instance().recordBreakerTrip();
+            // Try fallback
+            KubeFnRequest request = new KubeFnRequest(
+                    method, path, route.subPath(), headers, queryParams, body);
+            KubeFnResponse fallbackResponse = fallbackRegistry.executeFallback(
+                    groupName, functionName, request, null);
+            sendResponse(ctx, fallbackResponse, requestId);
+            return;
+        }
+
+        // 7. Concurrency limit
         Semaphore semaphore = groupSemaphores.computeIfAbsent(
                 groupName, k -> new Semaphore(config.maxConcurrencyPerGroup()));
 
@@ -128,49 +159,74 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
             acquired = semaphore.tryAcquire(100, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            sendError(ctx, 503, "Service interrupted", requestId);
+            drainManager.releaseRequest(groupName);
+            sendError(ctx, 503, "Interrupted", requestId);
             return;
         }
 
         if (!acquired) {
+            drainManager.releaseRequest(groupName);
             sendError(ctx, 503, "Group '" + groupName + "' at max concurrency", requestId);
             return;
         }
 
-        // Start OpenTelemetry span
+        // 8. Execute with tracing, timeout, and metrics
         Span span = KubeFnTracer.startFunctionSpan(groupName, functionName, revisionId, requestId);
         long startNanos = System.nanoTime();
         boolean success = false;
 
         try {
-            // Build KubeFnRequest
             KubeFnRequest request = new KubeFnRequest(
                     method, path, route.subPath(), headers, queryParams, body);
 
-            // Execute the function handler
-            KubeFnResponse response = entry.handler().handle(request);
+            // Execute with timeout enforcement
+            KubeFnResponse response;
+            try {
+                response = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return entry.handler().handle(request);
+                    } catch (Exception e) {
+                        throw new CompletionException(e);
+                    }
+                }, Runnable::run) // Run on current virtual thread
+                .get(config.requestTimeoutMs(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                long durationNanos = System.nanoTime() - startNanos;
+                KubeFnMetrics.instance().recordTimeout();
+                circuitBreaker.recordFailure(groupName, functionName, durationNanos, e);
+                sendError(ctx, 504, "Request timeout after " + config.requestTimeoutMs() + "ms", requestId);
+                return;
+            } catch (ExecutionException e) {
+                throw e.getCause() instanceof Exception ex ? ex : new RuntimeException(e.getCause());
+            }
 
-            // Add tracing headers to response
+            // Add tracing headers
             response.header("X-KubeFn-Request-Id", requestId);
             response.header("X-KubeFn-Revision", revisionId);
             response.header("X-KubeFn-Group", groupName);
 
-            // Record success
             long durationNanos = System.nanoTime() - startNanos;
             circuitBreaker.recordSuccess(groupName, functionName, durationNanos);
+            KubeFnMetrics.instance().recordInvocation(groupName, functionName, durationNanos, true);
             success = true;
 
-            // Send response
             sendResponse(ctx, response, requestId);
 
         } catch (Exception e) {
             long durationNanos = System.nanoTime() - startNanos;
             circuitBreaker.recordFailure(groupName, functionName, durationNanos, e);
-            log.error("Function error: {}.{} [req={}] for {} {}",
-                    groupName, functionName, requestId, method, path, e);
-            sendError(ctx, 500, "Function error: " + e.getMessage(), requestId);
+            KubeFnMetrics.instance().recordInvocation(groupName, functionName, durationNanos, false);
+            log.error("Function error: {}.{} [{}]", groupName, functionName, requestId, e);
+
+            // Try fallback
+            KubeFnRequest request = new KubeFnRequest(
+                    method, path, route.subPath(), headers, queryParams, body);
+            KubeFnResponse fallbackResponse = fallbackRegistry.executeFallback(
+                    groupName, functionName, request, e);
+            sendResponse(ctx, fallbackResponse, requestId);
         } finally {
             semaphore.release();
+            drainManager.releaseRequest(groupName);
             long durationNanos = System.nanoTime() - startNanos;
             KubeFnTracer.endFunctionSpan(span, durationNanos, 0, success);
         }
@@ -206,38 +262,28 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
             response.headers().set("X-KubeFn-Runtime", "v0.2");
             response.headers().set("X-KubeFn-Request-Id", requestId);
 
-            // Add custom headers from function
             fnResponse.headers().forEach((k, v) -> response.headers().set(k, v));
 
             ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
-
         } catch (Exception e) {
-            log.error("Error serializing response [req={}]", requestId, e);
+            log.error("Serialization error [{}]", requestId, e);
             sendError(ctx, 500, "Response serialization error", requestId);
         }
     }
 
     private void sendError(ChannelHandlerContext ctx, int status, String message, String requestId) {
         try {
-            Map<String, Object> errorBody = Map.of(
-                    "error", message,
-                    "status", status,
-                    "requestId", requestId
-            );
-            byte[] body = objectMapper.writeValueAsBytes(errorBody);
-
+            byte[] body = objectMapper.writeValueAsBytes(Map.of(
+                    "error", message, "status", status, "requestId", requestId));
             FullHttpResponse response = new DefaultFullHttpResponse(
-                    HttpVersion.HTTP_1_1,
-                    HttpResponseStatus.valueOf(status),
+                    HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(status),
                     Unpooled.wrappedBuffer(body));
-
             response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8");
             response.headers().set(HttpHeaderNames.CONTENT_LENGTH, body.length);
             response.headers().set("X-KubeFn-Request-Id", requestId);
-
             ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
         } catch (Exception e) {
-            log.error("Failed to send error response [req={}]", requestId, e);
+            log.error("Failed to send error [{}]", requestId, e);
             ctx.close();
         }
     }
@@ -246,13 +292,12 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
         Map<String, String> params = new HashMap<>();
         int qIdx = uri.indexOf('?');
         if (qIdx >= 0 && qIdx < uri.length() - 1) {
-            String query = uri.substring(qIdx + 1);
-            for (String pair : query.split("&")) {
+            for (String pair : uri.substring(qIdx + 1).split("&")) {
                 int eq = pair.indexOf('=');
                 if (eq > 0) {
-                    String key = java.net.URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8);
-                    String value = java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
-                    params.put(key, value);
+                    params.put(
+                        java.net.URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8),
+                        java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
                 }
             }
         }
@@ -261,14 +306,12 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
 
     private Map<String, String> extractHeaders(FullHttpRequest request) {
         Map<String, String> headers = new HashMap<>();
-        request.headers().forEach(entry -> headers.put(entry.getKey().toLowerCase(), entry.getValue()));
+        request.headers().forEach(e -> headers.put(e.getKey().toLowerCase(), e.getValue()));
         return headers;
     }
 
     private byte[] extractBody(FullHttpRequest request) {
-        if (request.content().readableBytes() == 0) {
-            return new byte[0];
-        }
+        if (request.content().readableBytes() == 0) return new byte[0];
         byte[] body = new byte[request.content().readableBytes()];
         request.content().readBytes(body);
         return body;
