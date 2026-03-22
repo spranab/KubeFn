@@ -45,6 +45,10 @@ usage() {
     echo -e "  ${GREEN}logs${NC}        Stream runtime logs from K8s"
     echo -e "  ${GREEN}version${NC}     Show version"
     echo ""
+    echo -e "${BOLD}Init Options:${NC}"
+    echo -e "  kubefn init [--lang <language>] <name> <group>"
+    echo -e "  --lang    Language: java (default), kotlin, scala, groovy"
+    echo ""
     echo -e "${BOLD}Environment:${NC}"
     echo "  KUBEFN_HOST        Runtime host (default: localhost)"
     echo "  KUBEFN_PORT        Runtime HTTP port (default: 8080)"
@@ -71,12 +75,90 @@ check_runtime() {
 
 # ─── INIT ───────────────────────────────────────────────────────
 cmd_init() {
+    local lang="java"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --lang) lang="$2"; shift 2 ;;
+            *) break ;;
+        esac
+    done
     local name="${1:-my-function}"
     local group="${2:-my-service}"
 
-    echo -e "${BOLD}Scaffolding function: ${GREEN}${name}${NC} in group ${CYAN}${group}${NC}"
+    # Validate language
+    case "$lang" in
+        java|kotlin|scala|groovy) ;;
+        *)
+            echo -e "${RED}Error: Unsupported language '${lang}'${NC}"
+            echo "Supported languages: java, kotlin, scala, groovy"
+            exit 1
+            ;;
+    esac
+
+    echo -e "${BOLD}Scaffolding function: ${GREEN}${name}${NC} in group ${CYAN}${group}${NC} (${YELLOW}${lang}${NC})"
 
     local dir="${name}"
+    local className
+    className=$(echo "${name}" | python3 -c "import sys; print(''.join(w.capitalize() for w in sys.stdin.read().strip().split('-')))")
+
+    case "$lang" in
+        java)
+            _init_java "${dir}" "${name}" "${group}" "${className}"
+            ;;
+        kotlin)
+            _init_kotlin "${dir}" "${name}" "${group}" "${className}"
+            ;;
+        scala)
+            _init_scala "${dir}" "${name}" "${group}" "${className}"
+            ;;
+        groovy)
+            _init_groovy "${dir}" "${name}" "${group}" "${className}"
+            ;;
+    esac
+
+    echo ""
+    echo -e "${BOLD}Dependency (add to your build):${NC}"
+    echo ""
+    echo -e "  ${CYAN}Gradle:${NC}"
+    echo '    repositories { maven { url = uri("https://jitpack.io") } }'
+    echo '    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")'
+    echo ""
+    echo -e "  ${CYAN}Maven:${NC}"
+    echo "    <repository><id>jitpack.io</id><url>https://jitpack.io</url></repository>"
+    echo "    <dependency>"
+    echo "      <groupId>com.github.kubefn.kubefn</groupId>"
+    echo "      <artifactId>kubefn-api</artifactId>"
+    echo "      <version>v0.3.0</version>"
+    echo "      <scope>provided</scope>"
+    echo "    </dependency>"
+    echo ""
+    echo -e "${BOLD}Next steps:${NC}"
+
+    case "$lang" in
+        java)
+            echo "  1. Edit ${dir}/src/main/java/com/example/${className}Function.java"
+            echo "  2. Build: cd ${dir} && gradle jar   (or: mvn package)"
+            ;;
+        kotlin)
+            echo "  1. Edit ${dir}/src/main/kotlin/com/example/${className}Function.kt"
+            echo "  2. Build: cd ${dir} && gradle jar"
+            ;;
+        scala)
+            echo "  1. Edit ${dir}/src/main/scala/com/example/${className}Function.scala"
+            echo "  2. Build: cd ${dir} && gradle jar"
+            ;;
+        groovy)
+            echo "  1. Edit ${dir}/src/main/groovy/com/example/${className}Function.groovy"
+            echo "  2. Build: cd ${dir} && gradle jar"
+            ;;
+    esac
+    echo "  3. Deploy: kubefn deploy ${dir}/build/libs/${name}.jar ${group}"
+}
+
+# ─── INIT: Java ─────────────────────────────────────────────────
+_init_java() {
+    local dir="$1" name="$2" group="$3" className="$4"
+
     mkdir -p "${dir}/src/main/java/com/example"
 
     # build.gradle.kts
@@ -106,8 +188,6 @@ tasks.withType<JavaCompile> {
 GRADLE
 
     # Function template
-    local className
-    className=$(echo "${name}" | python3 -c "import sys; print(''.join(w.capitalize() for w in sys.stdin.read().strip().split('-')))")
     cat > "${dir}/src/main/java/com/example/${className}Function.java" << JAVA
 package com.example;
 
@@ -191,30 +271,178 @@ JAVA
 </project>
 MAVEN
 
-    echo -e "${GREEN}Created:${NC}"
+    echo -e "${GREEN}Created (Java):${NC}"
     echo "  ${dir}/build.gradle.kts  (Gradle)"
     echo "  ${dir}/pom.xml           (Maven)"
     echo "  ${dir}/src/main/java/com/example/${className}Function.java"
-    echo ""
-    echo -e "${BOLD}Dependency (add to your build):${NC}"
-    echo ""
-    echo -e "  ${CYAN}Gradle:${NC}"
-    echo '    repositories { maven { url = uri("https://jitpack.io") } }'
-    echo '    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")'
-    echo ""
-    echo -e "  ${CYAN}Maven:${NC}"
-    echo "    <repository><id>jitpack.io</id><url>https://jitpack.io</url></repository>"
-    echo "    <dependency>"
-    echo "      <groupId>com.github.kubefn.kubefn</groupId>"
-    echo "      <artifactId>kubefn-api</artifactId>"
-    echo "      <version>v0.3.0</version>"
-    echo "      <scope>provided</scope>"
-    echo "    </dependency>"
-    echo ""
-    echo -e "${BOLD}Next steps:${NC}"
-    echo "  1. Edit ${dir}/src/main/java/com/example/${className}Function.java"
-    echo "  2. Build: cd ${dir} && gradle jar   (or: mvn package)"
-    echo "  3. Deploy: kubefn deploy ${dir}/build/libs/${name}.jar ${group}"
+}
+
+# ─── INIT: Kotlin ───────────────────────────────────────────────
+_init_kotlin() {
+    local dir="$1" name="$2" group="$3" className="$4"
+
+    mkdir -p "${dir}/src/main/kotlin/com/example"
+
+    cat > "${dir}/build.gradle.kts" << 'GRADLE'
+plugins {
+    kotlin("jvm") version "2.1.10"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+    mavenLocal()
+}
+
+dependencies {
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
+}
+GRADLE
+
+    cat > "${dir}/src/main/kotlin/com/example/${className}Function.kt" << KOTLIN
+package com.example
+
+import com.kubefn.api.*
+
+@FnRoute(path = "/${name}", methods = ["GET", "POST"])
+@FnGroup("${group}")
+class ${className}Function : KubeFnHandler, FnContextAware {
+    private lateinit var ctx: FnContext
+
+    override fun setContext(context: FnContext) { ctx = context }
+
+    override fun handle(request: KubeFnRequest): KubeFnResponse {
+        val name = request.queryParam("name").orElse("World")
+        return KubeFnResponse.ok(mapOf(
+            "message" to "Hello from Kotlin, \$name!",
+            "group" to ctx.groupName(),
+            "revision" to ctx.revisionId()
+        ))
+    }
+}
+KOTLIN
+
+    echo -e "${GREEN}Created (Kotlin):${NC}"
+    echo "  ${dir}/build.gradle.kts"
+    echo "  ${dir}/src/main/kotlin/com/example/${className}Function.kt"
+}
+
+# ─── INIT: Scala ────────────────────────────────────────────────
+_init_scala() {
+    local dir="$1" name="$2" group="$3" className="$4"
+
+    mkdir -p "${dir}/src/main/scala/com/example"
+
+    cat > "${dir}/build.gradle.kts" << 'GRADLE'
+plugins {
+    scala
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+    mavenLocal()
+}
+
+dependencies {
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
+    implementation("org.scala-lang:scala3-library_3:3.6.4")
+}
+GRADLE
+
+    cat > "${dir}/src/main/scala/com/example/${className}Function.scala" << SCALA
+package com.example
+
+import com.kubefn.api._
+import java.util.{Map => JMap}
+
+@FnRoute(path = "/${name}", methods = Array("GET", "POST"))
+@FnGroup("${group}")
+class ${className}Function extends KubeFnHandler with FnContextAware {
+  private var ctx: FnContext = _
+
+  override def setContext(context: FnContext): Unit = { ctx = context }
+
+  override def handle(request: KubeFnRequest): KubeFnResponse = {
+    val name = request.queryParam("name").orElse("World")
+    KubeFnResponse.ok(JMap.of(
+      "message", s"Hello from Scala, \$name!",
+      "group", ctx.groupName(),
+      "revision", ctx.revisionId()
+    ))
+  }
+}
+SCALA
+
+    echo -e "${GREEN}Created (Scala):${NC}"
+    echo "  ${dir}/build.gradle.kts"
+    echo "  ${dir}/src/main/scala/com/example/${className}Function.scala"
+}
+
+# ─── INIT: Groovy ───────────────────────────────────────────────
+_init_groovy() {
+    local dir="$1" name="$2" group="$3" className="$4"
+
+    mkdir -p "${dir}/src/main/groovy/com/example"
+
+    cat > "${dir}/build.gradle.kts" << 'GRADLE'
+plugins {
+    groovy
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+    mavenLocal()
+}
+
+dependencies {
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
+    implementation("org.apache.groovy:groovy:4.0.27")
+}
+GRADLE
+
+    cat > "${dir}/src/main/groovy/com/example/${className}Function.groovy" << GROOVY
+package com.example
+
+import com.kubefn.api.*
+
+@FnRoute(path = "/${name}", methods = ["GET", "POST"])
+@FnGroup("${group}")
+class ${className}Function implements KubeFnHandler, FnContextAware {
+    FnContext ctx
+
+    void setContext(FnContext context) { this.ctx = context }
+
+    KubeFnResponse handle(KubeFnRequest request) {
+        def name = request.queryParam("name").orElse("World")
+        KubeFnResponse.ok([
+            message: "Hello from Groovy, \${name}!",
+            group: ctx.groupName(),
+            revision: ctx.revisionId()
+        ])
+    }
+}
+GROOVY
+
+    echo -e "${GREEN}Created (Groovy):${NC}"
+    echo "  ${dir}/build.gradle.kts"
+    echo "  ${dir}/src/main/groovy/com/example/${className}Function.groovy"
 }
 
 # ─── DEV ────────────────────────────────────────────────────────

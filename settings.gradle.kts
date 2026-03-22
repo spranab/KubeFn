@@ -20,5 +20,11 @@ include(
     "examples:api-gateway",
     "examples:workflow-saga",
     "examples:event-processing",
-    "examples:clinical-alerts"
+    "examples:clinical-alerts",
+
+    // Multi-language examples (JVM polyglot — same heap, zero-copy)
+    "examples:kotlin-functions",
+    "examples:scala-functions",
+    "examples:groovy-functions",
+    "examples:polyglot-demo"
 )
