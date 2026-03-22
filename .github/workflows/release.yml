@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Build shadow JAR
+        run: ./gradlew :kubefn-runtime:shadowJar
+
+      - name: Publish kubefn-api to Maven Central
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+        run: ./gradlew :kubefn-api:publishMavenJavaPublicationToMavenCentralRepository
+
+      - name: Publish to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :kubefn-api:publishMavenJavaPublicationToGitHubPackagesRepository
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/kubefn/runtime:${{ steps.version.outputs.VERSION }} \
+            -t ghcr.io/kubefn/runtime:latest \
+            -f Dockerfile.demo .
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/kubefn/runtime:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/kubefn/runtime:latest
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            kubefn-runtime/build/libs/kubefn-runtime-*-all.jar
+            kubefn-api/build/libs/kubefn-api-*.jar
