@@ -245,15 +245,15 @@ KubeFn/
 
 ## Benchmark
 
-7-function checkout pipeline: Auth → Inventory → Pricing → Shipping → Tax → FraudCheck → Assemble
+Full HTTP request-response cycle, measured with `hey` (1000 requests, 10 concurrent):
 
-| Platform | Latency | Serialization Cycles | HTTP Calls |
-|---|---|---|---|
-| Microservices | ~60ms | 7 | 7 |
-| KubeFn (local) | **0.458ms** | **0** | **0** |
-| KubeFn (K8s) | **1.489ms** | **0** | **0** |
+| Runtime | Pipeline | Avg Latency | p50 | p95 | Throughput | vs Microservices |
+|---|---|---|---|---|---|---|
+| **JVM** | 7-step checkout | 3.8ms | 2.5ms | 4.4ms | 2,550 rps | **4-18x faster** |
+| **Python** | 3-step ML inference | 1.0ms | 0.6ms | 0.9ms | 7,455 rps | **6-30x faster** |
+| **Node.js** | 3-step API gateway | 0.3ms | 0.2ms | 0.5ms | 33,085 rps | **20-100x faster** |
 
-All functions share heap objects via HeapExchange. Zero serialization. Zero network hops.
+The speedup comes from eliminating N-1 HTTP round trips and N JSON serialization cycles between functions. In KubeFn, functions compose in-memory via HeapExchange — 1 HTTP call handles the full pipeline.
 
 ## What KubeFn is NOT
 

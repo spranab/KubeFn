@@ -563,29 +563,32 @@
     <section class="benchmark">
         <div class="container">
             <div class="benchmark-card">
-                <div class="benchmark-number">131x</div>
-                <div class="benchmark-label">faster than microservices for a 7-function checkout pipeline</div>
+                <div class="benchmark-number">4-18x</div>
+                <div class="benchmark-label">faster for a 7-function checkout pipeline (full HTTP cycle, measured with hey)</div>
                 <div class="benchmark-compare">
                     <div class="compare-box old">
                         <div class="label">Microservices</div>
-                        <div class="value">~60ms</div>
-                        <div class="detail">7 HTTP calls + JSON serialization</div>
+                        <div class="value">14-70ms</div>
+                        <div class="detail">7 HTTP hops + JSON ser/deser each</div>
                     </div>
                     <div class="compare-box new">
                         <div class="label">KubeFn JVM</div>
-                        <div class="value">0.458ms</div>
-                        <div class="detail">7 in-memory, zero serialization</div>
+                        <div class="value">3.8ms</div>
+                        <div class="detail">1 HTTP call, 7 in-memory steps</div>
                     </div>
                 </div>
                 <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
                     <div style="padding:12px;background:rgba(55,118,171,0.1);border:1px solid rgba(55,118,171,0.3);border-radius:8px;text-align:center">
-                        <span style="color:#3776AB;font-weight:700;font-size:1.2rem">Python: 535x</span>
-                        <div style="color:var(--text-dim);font-size:11px;margin-top:4px">ML pipeline &middot; 0.084ms</div>
+                        <span style="color:#3776AB;font-weight:700;font-size:1.2rem">Python: 6-30x</span>
+                        <div style="color:var(--text-dim);font-size:11px;margin-top:4px">ML pipeline &middot; 1.0ms avg &middot; 7,455 rps</div>
                     </div>
                     <div style="padding:12px;background:rgba(241,224,90,0.08);border:1px solid rgba(241,224,90,0.3);border-radius:8px;text-align:center">
-                        <span style="color:#F1E05A;font-weight:700;font-size:1.2rem">Node.js: 3,704x</span>
-                        <div style="color:var(--text-dim);font-size:11px;margin-top:4px">API gateway &middot; 0.008ms</div>
+                        <span style="color:#F1E05A;font-weight:700;font-size:1.2rem">Node.js: 20-100x</span>
+                        <div style="color:var(--text-dim);font-size:11px;margin-top:4px">API gateway &middot; 0.3ms avg &middot; 33K rps</div>
                     </div>
+                </div>
+                <div style="margin-top:12px;font-size:11px;color:var(--text-dim);text-align:center">
+                    Full HTTP request-response cycle. Measured with <code style="background:#161b22;padding:2px 5px;border-radius:3px">hey</code>, 1000 req, 10 concurrent.
                 </div>
             </div>
         </div>
