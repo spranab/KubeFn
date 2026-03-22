@@ -29,6 +29,11 @@ dependencies {
     implementation(libs.opentelemetry.exporter.logging)
     implementation(libs.resilience4j.circuitbreaker)
 
+    // JVM language runtimes — available to polyglot functions via parent classloader
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.20")
+    implementation("org.scala-lang:scala-library:2.13.16")
+    implementation("org.apache.groovy:groovy:4.0.27")
+
     testImplementation(libs.bundles.testing)
 }
 

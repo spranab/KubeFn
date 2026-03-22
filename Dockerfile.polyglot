@@ -1,0 +1,13 @@
+FROM eclipse-temurin:21-jre-alpine
+RUN addgroup -S kubefn && adduser -S kubefn -G kubefn
+RUN mkdir -p /var/kubefn/functions/hello-service /var/kubefn/functions/checkout-pipeline /var/kubefn/functions/kotlin-showcase /var/kubefn/functions/scala-showcase /var/kubefn/functions/groovy-showcase && chown -R kubefn:kubefn /var/kubefn
+COPY kubefn-runtime/build/libs/kubefn-runtime-*-all.jar /opt/kubefn/runtime.jar
+COPY examples/hello-function/build/libs/*.jar /var/kubefn/functions/hello-service/
+COPY examples/checkout-pipeline/build/libs/*.jar /var/kubefn/functions/checkout-pipeline/
+COPY examples/kotlin-functions/build/libs/*.jar /var/kubefn/functions/kotlin-showcase/
+COPY examples/scala-functions/build/libs/*.jar /var/kubefn/functions/scala-showcase/
+COPY examples/groovy-functions/build/libs/*.jar /var/kubefn/functions/groovy-showcase/
+USER kubefn
+EXPOSE 8080 8081
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 CMD wget -q -O- http://localhost:8081/healthz || exit 1
+ENTRYPOINT ["java", "--enable-preview", "-XX:+UseZGC", "-XX:+DisableAttachMechanism", "-jar", "/opt/kubefn/runtime.jar"]
