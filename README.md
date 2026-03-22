@@ -291,6 +291,12 @@ The speedup comes from eliminating N-1 HTTP round trips and N JSON serialization
 
 KubeFn is in early development. We welcome contributions, feedback, and ideas.
 
+## Citation
+
+If you use KubeFn in your research, please cite:
+
+> Sarkar, P. (2026). "Decoupling Deployment Boundaries from Memory Boundaries in Function Composition." DOI: [10.5281/zenodo.19161471](https://doi.org/10.5281/zenodo.19161471)
+
 ## License
 
 MIT

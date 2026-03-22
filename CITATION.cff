@@ -13,7 +13,7 @@ url: "https://kubefn.com"
 license: MIT
 version: 0.4.0
 date-released: "2026-03-22"
-keywords:
+doi: "10.5281/zenodo.19161471"keywords:
   - memory-continuous architecture
   - serverless
   - function composition
