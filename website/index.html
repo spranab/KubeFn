@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeFn — Live Application Fabric for Kubernetes</title>
+    <meta name="description" content="Deploy like microservices. Perform like a monolith. Evolve like a living organism. 131x faster than microservices with zero-copy shared memory.">
+    <meta property="og:title" content="KubeFn — Live Application Fabric">
+    <meta property="og:description" content="Memory-Continuous Architecture for Kubernetes. 131x faster than microservices.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kubefn.com">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
+    <style>
+        :root {
+            --bg: #0a0e17;
+            --bg-card: #111827;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent: #06b6d4;
+            --accent-2: #8b5cf6;
+            --green: #10b981;
+            --red: #ef4444;
+            --border: #1e293b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+            background: linear-gradient(180deg, #0f172a 0%, var(--bg) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            letter-spacing: 0.5px;
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero .tagline {
+            font-size: 1.25rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+        .btn-primary:hover { background: #22d3ee; }
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--accent); }
+
+        /* Benchmark */
+        .benchmark {
+            padding: 60px 0;
+            text-align: center;
+        }
+        .benchmark-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .benchmark-number {
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--green), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+        .benchmark-label {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            margin: 8px 0 24px;
+        }
+        .benchmark-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            text-align: left;
+        }
+        .compare-box {
+            padding: 16px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+        }
+        .compare-box.old { border-left: 3px solid var(--red); }
+        .compare-box.new { border-left: 3px solid var(--green); }
+        .compare-box .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .compare-box .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+        .compare-box .detail { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+        /* Triangle */
+        .triangle {
+            padding: 60px 0;
+            text-align: center;
+        }
+        .triangle h2 {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        .triangle .subtitle {
+            color: var(--text-dim);
+            margin-bottom: 32px;
+            font-size: 1.05rem;
+        }
+        .triangle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .triangle-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            text-align: left;
+        }
+        .triangle-item h3 { font-size: 1.1rem; margin-bottom: 8px; }
+        .triangle-item .check { color: var(--green); }
+        .triangle-item .cross { color: var(--red); opacity: 0.6; }
+        .triangle-item p { font-size: 14px; color: var(--text-dim); }
+
+        /* Pillars */
+        .pillars {
+            padding: 60px 0;
+        }
+        .pillars h2 {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .pillar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .pillar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 28px;
+        }
+        .pillar .icon { font-size: 2rem; margin-bottom: 12px; }
+        .pillar h3 { font-size: 1.15rem; margin-bottom: 8px; }
+        .pillar p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+        /* Code */
+        .code-section {
+            padding: 60px 0;
+            text-align: center;
+        }
+        .code-section h2 { font-size: 2rem; margin-bottom: 8px; }
+        .code-section .subtitle { color: var(--text-dim); margin-bottom: 28px; }
+        pre {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            overflow-x: auto;
+            text-align: left;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13.5px;
+            line-height: 1.6;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .kw { color: #ff7b72; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; }
+        .fn { color: #d2a8ff; }
+        .type { color: #79c0ff; }
+        .num { color: #79c0ff; }
+
+        /* Hotswap */
+        .hotswap {
+            padding: 60px 0;
+            text-align: center;
+        }
+        .hotswap h2 { font-size: 2rem; margin-bottom: 12px; }
+        .hotswap .subtitle { color: var(--text-dim); margin-bottom: 28px; }
+        .hotswap-result {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            margin: 0 auto;
+            font-family: 'SF Mono', monospace;
+            font-size: 14px;
+            text-align: left;
+        }
+        .hotswap-result .line { margin: 4px 0; }
+        .hotswap-result .g { color: var(--green); }
+        .hotswap-result .r { color: var(--red); }
+        .hotswap-result .y { color: #eab308; }
+        .hotswap-result .b { font-weight: 700; }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 600px) {
+            .benchmark-compare { grid-template-columns: 1fr; }
+            .hero { padding: 50px 0 40px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Memory-Continuous Architecture</div>
+            <h1>Where functions share<br><span class="gradient">memory, not messages.</span></h1>
+            <p class="tagline">
+                Deploy like microservices. Perform like a monolith. Evolve like a living organism.
+                A Kubernetes-native runtime for zero-copy function composition.
+            </p>
+            <div class="hero-cta">
+                <a href="https://github.com/spranab/KubeFn" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    GitHub
+                </a>
+                <a href="#quickstart" class="btn btn-secondary">Quick Start</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benchmark -->
+    <section class="benchmark">
+        <div class="container">
+            <div class="benchmark-card">
+                <div class="benchmark-number">131x</div>
+                <div class="benchmark-label">faster than microservices for a 7-function checkout pipeline</div>
+                <div class="benchmark-compare">
+                    <div class="compare-box old">
+                        <div class="label">Microservices</div>
+                        <div class="value">~60ms</div>
+                        <div class="detail">7 HTTP calls + JSON serialization</div>
+                    </div>
+                    <div class="compare-box new">
+                        <div class="label">KubeFn</div>
+                        <div class="value">0.458ms</div>
+                        <div class="detail">7 in-memory, zero serialization</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Triangle -->
+    <section class="triangle">
+        <div class="container">
+            <h2>The architecture trilemma — solved.</h2>
+            <p class="subtitle">Every platform before KubeFn forces you to pick two. KubeFn gives you all three.</p>
+            <div class="triangle-grid">
+                <div class="triangle-item">
+                    <h3>Monolith</h3>
+                    <p><span class="check">&#10003;</span> Shared memory &nbsp; <span class="cross">&#10007;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                </div>
+                <div class="triangle-item">
+                    <h3>Microservices</h3>
+                    <p><span class="cross">&#10007;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                </div>
+                <div class="triangle-item">
+                    <h3>FaaS / Serverless</h3>
+                    <p><span class="cross">&#10007;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                </div>
+                <div class="triangle-item" style="border-color: var(--accent); background: rgba(6,182,212,0.05);">
+                    <h3 style="color: var(--accent);">KubeFn</h3>
+                    <p><span class="check">&#10003;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="check">&#10003;</span> Hot-swap</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pillars -->
+    <section class="pillars">
+        <div class="container">
+            <h2>The Revolutionary Primitives</h2>
+            <div class="pillar-grid">
+                <div class="pillar">
+                    <div class="icon">&#129516;</div>
+                    <h3>HeapExchange</h3>
+                    <p>Zero-copy shared object graph between functions. No serialization. No network. Same memory address. Function A's output IS Function B's input.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#9889;</div>
+                    <h3>Born-Warm Deploys</h3>
+                    <p>New function revisions enter an already-hot JVM. Shared libraries are JIT-compiled. Peak performance in &lt;1 second, not 30+ seconds.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#128260;</div>
+                    <h3>Hot-Swap</h3>
+                    <p>Replace individual functions while traffic flows. Zero dropped requests. The organism lives — only the organ is replaced. Tested: 200/200 successful.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#128209;</div>
+                    <h3>FnGraph Pipelines</h3>
+                    <p>Compose functions into in-memory execution graphs. The runtime owns the graph, traces it, and can optimize it. 7 steps in 0.458ms.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#128737;</div>
+                    <h3>Circuit Breakers</h3>
+                    <p>Per-function failure isolation. If one function fails, the breaker trips — protecting the shared organism from cascade failures.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#128269;</div>
+                    <h3>Causal Tracing</h3>
+                    <p>OpenTelemetry spans per function with revision IDs, request lineage, and heap mutation tracking. See exactly what happened in memory.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Example -->
+    <section class="code-section" id="quickstart">
+        <div class="container">
+            <h2>Write a function in 10 lines</h2>
+            <p class="subtitle">Functions are independently deployable but collaborate through shared heap objects.</p>
+<pre><span class="cm">// Zero-copy: publish once, read everywhere</span>
+<span class="kw">@FnRoute</span>(path = <span class="str">"/pricing"</span>)
+<span class="kw">@FnGroup</span>(<span class="str">"checkout"</span>)
+<span class="kw">public class</span> <span class="type">PricingFunction</span> <span class="kw">implements</span> <span class="type">KubeFnHandler</span> {
+
+    <span class="kw">public</span> <span class="type">KubeFnResponse</span> <span class="fn">handle</span>(<span class="type">KubeFnRequest</span> req) {
+        <span class="cm">// Read from HeapExchange — SAME object, zero copy</span>
+        <span class="kw">var</span> auth = ctx.<span class="fn">heap</span>().<span class="fn">get</span>(<span class="str">"auth"</span>, Map.class);
+
+        <span class="kw">var</span> price = Map.<span class="fn">of</span>(<span class="str">"total"</span>, <span class="num">84.99</span>);
+        ctx.<span class="fn">heap</span>().<span class="fn">publish</span>(<span class="str">"price"</span>, price, Map.class);
+
+        <span class="kw">return</span> <span class="type">KubeFnResponse</span>.<span class="fn">ok</span>(price);
+    }
+}</pre>
+        </div>
+    </section>
+
+    <!-- Hot-Swap -->
+    <section class="hotswap">
+        <div class="container">
+            <h2>Hot-swap under fire</h2>
+            <p class="subtitle">Replace a function while 200 requests are in flight. Zero downtime.</p>
+            <div class="hotswap-result">
+                <div class="line">Total requests:    <span class="b">200</span></div>
+                <div class="line">Successful:        <span class="g">200</span></div>
+                <div class="line">Failed:            <span class="g">0</span></div>
+                <div class="line">Dropped:           <span class="g">0</span></div>
+                <div class="line">&nbsp;</div>
+                <div class="line">v1 responses:      <span class="y">51</span>  (15% discount)</div>
+                <div class="line">v2 responses:      <span class="g">149</span> (25% discount)</div>
+                <div class="line">&nbsp;</div>
+                <div class="line"><span class="b">Zero downtime. Born warm. The organism lives.</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p style="margin-bottom: 8px;"><strong>KubeFn</strong> — Live Application Fabric for Memory-Continuous Architecture</p>
+            <p>
+                <a href="https://github.com/spranab/KubeFn">GitHub</a> &middot;
+                <a href="https://pranab.co.in">Built by Pranab Sarkar</a> &middot;
+                MIT License
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
