@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+RUN addgroup --system kubefn && adduser --system --group kubefn
+
+WORKDIR /opt/kubefn
+COPY kubefn/ ./kubefn/
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e .
+
+# Bake in the ML pipeline example
+RUN mkdir -p /var/kubefn/functions/ml-pipeline
+COPY examples/ml_pipeline/*.py /var/kubefn/functions/ml-pipeline/
+RUN chown -R kubefn:kubefn /var/kubefn
+
+USER kubefn
+EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=3s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')" || exit 1
+
+ENTRYPOINT ["python", "-m", "kubefn"]
