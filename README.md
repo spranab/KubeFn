@@ -141,6 +141,37 @@ Replace individual functions while traffic flows. Old classloader is discarded, 
 
 Each function group has semaphore-based concurrency limits, preventing noisy neighbors from degrading the organism.
 
+## Add to Your Project
+
+**Gradle:**
+```kotlin
+repositories {
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+}
+dependencies {
+    compileOnly("com.github.spranab.KubeFn:kubefn-api:v0.3.0")
+}
+```
+
+**Maven:**
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+<dependency>
+    <groupId>com.github.spranab.KubeFn</groupId>
+    <artifactId>kubefn-api</artifactId>
+    <version>v0.3.0</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+Or scaffold a project instantly: `kubefn init my-function my-service`
+
 ## Writing a Function
 
 ```java
