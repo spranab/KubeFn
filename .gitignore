@@ -28,3 +28,6 @@ Thumbs.db
 .mcp.json
 .tracker.db
 sonatypegradle.properties
+gpg
+sonatype
+gradle.properties
