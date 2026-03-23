@@ -2,6 +2,7 @@ rootProject.name = "kubefn"
 
 include(
     "kubefn-api",
+    "kubefn-contracts",
     "kubefn-runtime",
     "kubefn-operator",
     "kubefn-sdk",
