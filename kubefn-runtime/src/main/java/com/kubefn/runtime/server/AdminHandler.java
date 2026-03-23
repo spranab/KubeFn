@@ -96,14 +96,46 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         int status = 200;
 
         switch (path) {
-            case "/healthz" -> responseBody = Map.of(
-                    "status", "alive", "organism", "kubefn", "version", "0.3.0");
+            case "/healthz", "/admin/health" -> responseBody = Map.of(
+                    "status", "UP", "organism", "kubefn", "version", "0.5.0",
+                    "functions", router.routeCount(),
+                    "uptime_ms", ManagementFactory.getRuntimeMXBean().getUptime());
 
-            case "/readyz" -> {
+            case "/readyz", "/admin/ready" -> {
                 boolean ready = router.routeCount() > 0;
                 status = ready ? 200 : 503;
-                responseBody = Map.of("status", ready ? "ready" : "no_functions_loaded",
+                responseBody = Map.of("status", ready ? "READY" : "NOT_READY",
                         "functionCount", router.routeCount());
+            }
+
+            case "/admin/drain" -> {
+                var drainMap = new LinkedHashMap<String, Object>();
+                drainMap.put("draining", false);
+                drainMap.put("inFlightRequests", 0);
+                responseBody = drainMap;
+            }
+
+            case "/admin/scheduler" -> {
+                // Return scheduled functions info from loaded functions with @FnSchedule
+                var scheduled = new java.util.ArrayList<Map<String, Object>>();
+                router.allRoutes().forEach((key, entry) -> {
+                    try {
+                        var cls = entry.handler().getClass();
+                        var ann = cls.getAnnotation(com.kubefn.api.FnSchedule.class);
+                        if (ann != null) {
+                            var info = new LinkedHashMap<String, Object>();
+                            info.put("function", entry.functionName());
+                            info.put("group", entry.groupName());
+                            info.put("cron", ann.cron());
+                            info.put("timezone", ann.timezone());
+                            info.put("runOnStart", ann.runOnStart());
+                            info.put("timeoutMs", ann.timeoutMs());
+                            info.put("path", key.path());
+                            scheduled.add(info);
+                        }
+                    } catch (Exception ignored) {}
+                });
+                responseBody = Map.of("scheduled", scheduled, "count", scheduled.size());
             }
 
             case "/admin/functions" -> {

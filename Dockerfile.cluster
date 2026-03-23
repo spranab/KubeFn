@@ -1,0 +1,45 @@
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /opt/kubefn
+
+# Copy runtime
+COPY kubefn-runtime/build/libs/kubefn-runtime-0.3.1-all.jar runtime.jar
+
+# Copy ALL example function JARs into groups
+RUN mkdir -p /var/kubefn/functions
+
+COPY examples/hello-function/build/libs/*.jar /var/kubefn/functions/hello/
+COPY examples/checkout-pipeline/build/libs/*.jar /var/kubefn/functions/checkout/
+COPY examples/fraud-detection/build/libs/*.jar /var/kubefn/functions/fraud/
+COPY examples/ai-inference-pipeline/build/libs/*.jar /var/kubefn/functions/ai-pipeline/
+COPY examples/realtime-pricing/build/libs/*.jar /var/kubefn/functions/pricing/
+COPY examples/payment-processing/build/libs/*.jar /var/kubefn/functions/payments/
+COPY examples/notification-orchestrator/build/libs/*.jar /var/kubefn/functions/notifications/
+COPY examples/search-recommendation/build/libs/*.jar /var/kubefn/functions/search/
+COPY examples/api-gateway/build/libs/*.jar /var/kubefn/functions/gateway/
+COPY examples/workflow-saga/build/libs/*.jar /var/kubefn/functions/saga/
+COPY examples/event-processing/build/libs/*.jar /var/kubefn/functions/events/
+COPY examples/clinical-alerts/build/libs/*.jar /var/kubefn/functions/clinical/
+COPY examples/usecases/schedulers/build/libs/*.jar /var/kubefn/functions/schedulers/
+COPY examples/usecases/queue-workers/build/libs/*.jar /var/kubefn/functions/queue-workers/
+COPY examples/usecases/webhooks/build/libs/*.jar /var/kubefn/functions/webhooks/
+COPY examples/usecases/sidecar-replacements/build/libs/*.jar /var/kubefn/functions/sidecars/
+COPY examples/usecases/lifecycle/build/libs/*.jar /var/kubefn/functions/lifecycle/
+
+# Pattern examples
+COPY examples/patterns/producer/build/libs/*.jar /var/kubefn/functions/patterns/
+COPY examples/patterns/consumer/build/libs/*.jar /var/kubefn/functions/patterns/
+COPY examples/patterns/consumer-with-fallback/build/libs/*.jar /var/kubefn/functions/patterns/
+COPY examples/patterns/pipeline-orchestrator/build/libs/*.jar /var/kubefn/functions/patterns/
+COPY examples/patterns/contract-first-stub/build/libs/*.jar /var/kubefn/functions/patterns/
+
+ENV KUBEFN_PORT=8080
+ENV KUBEFN_ADMIN_PORT=8081
+ENV KUBEFN_FUNCTIONS_DIR=/var/kubefn/functions
+
+EXPOSE 8080 8081
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+    CMD wget -q --spider http://localhost:8081/admin/health || exit 1
+
+ENTRYPOINT ["java", "--enable-preview", "-Xmx1536m", "-XX:+UseZGC", "-jar", "runtime.jar"]
