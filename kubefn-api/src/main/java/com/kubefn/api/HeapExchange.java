@@ -41,6 +41,14 @@ public interface HeapExchange {
     <T> HeapCapsule<T> publish(String key, T value, Class<T> type);
 
     /**
+     * Publish an object with inferred type. Convenience for dynamic/untyped usage.
+     */
+    @SuppressWarnings("unchecked")
+    default <T> HeapCapsule<T> publish(String key, T value) {
+        return publish(key, value, (Class<T>) value.getClass());
+    }
+
+    /**
      * Get a shared object by key. Returns a direct heap reference —
      * zero-copy, zero-serialization.
      *
