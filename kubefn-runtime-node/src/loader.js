@@ -89,7 +89,7 @@ export class FunctionLoader {
     }
 
     const jsFiles = files.filter(
-      f => (f.endsWith('.js') || f.endsWith('.mjs')) && !f.startsWith('_')
+      f => (f.endsWith('.js') || f.endsWith('.mjs') || f.endsWith('.cjs')) && !f.startsWith('_')
     );
 
     for (const jsFile of jsFiles) {
@@ -237,6 +237,12 @@ export class FunctionLoader {
       // Always use dynamic import for .mjs
       const url = pathToFileURL(filePath).href + '?t=' + Date.now();
       return await import(url);
+    }
+
+    if (filePath.endsWith('.cjs')) {
+      // Always use require for .cjs
+      delete require.cache[require.resolve(filePath)];
+      return require(filePath);
     }
 
     // For .js files, try CJS first (since existing functions use module.exports)
