@@ -15,4 +15,9 @@ in shared memory with zero serialization.
         return {"score": prediction}
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
+
+from .decorators import function
+from .scheduler import schedule
+from .heap_exchange import HeapExchange
+from .context import FnContext, FnRequest

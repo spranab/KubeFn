@@ -1,16 +1,32 @@
 {
   "name": "kubefn-runtime-node",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "KubeFn Node.js Runtime — Memory-Continuous Architecture for JavaScript/TypeScript",
-  "main": "lib/server.js",
+  "type": "module",
+  "main": "src/index.js",
   "bin": {
-    "kubefn-node": "lib/server.js"
+    "kubefn-node": "src/index.js"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./heap-exchange": "./src/heap-exchange.js",
+    "./circuit-breaker": "./src/circuit-breaker.js",
+    "./drain-manager": "./src/drain-manager.js",
+    "./introspection": "./src/introspection.js",
+    "./metrics": "./src/metrics.js",
+    "./heap-guard": "./src/heap-guard.js",
+    "./scheduler": "./src/scheduler.js",
+    "./request-timeout": "./src/request-timeout.js"
   },
   "scripts": {
-    "start": "node lib/server.js",
-    "dev": "node --watch lib/server.js"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --experimental-vm-modules test/test-heap-exchange.js"
   },
-  "keywords": ["kubefn", "faas", "functions", "shared-memory", "zero-copy"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["kubefn", "faas", "functions", "shared-memory", "zero-copy", "heap-exchange"],
   "author": "Pranab Sarkar <developer@pranab.co.in>",
   "license": "MIT",
   "homepage": "https://kubefn.com"
