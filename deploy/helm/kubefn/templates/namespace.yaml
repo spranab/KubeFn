@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ include "kubefn.namespace" . }}
-  labels:
-    {{- include "kubefn.labels" . | nindent 4 }}

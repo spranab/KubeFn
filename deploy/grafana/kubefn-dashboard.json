@@ -1,0 +1,149 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Request Rate (per function)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "rate(kubefn_function_requests_total[5m])",
+        "legendFormat": "{{group}}.{{function}}"
+      }]
+    },
+    {
+      "title": "Error Rate (per function)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "rate(kubefn_function_errors_total[5m])",
+        "legendFormat": "{{group}}.{{function}}"
+      }]
+    },
+    {
+      "title": "p50 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [{
+        "expr": "kubefn_function_duration_p50_ms",
+        "legendFormat": "{{group}}.{{function}}"
+      }]
+    },
+    {
+      "title": "p95 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [{
+        "expr": "kubefn_function_duration_p95_ms",
+        "legendFormat": "{{group}}.{{function}}"
+      }]
+    },
+    {
+      "title": "p99 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [{
+        "expr": "kubefn_function_duration_p99_ms",
+        "legendFormat": "{{group}}.{{function}}"
+      }]
+    },
+    {
+      "title": "HeapExchange Objects",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "targets": [{
+        "expr": "kubefn_heap_objects"
+      }]
+    },
+    {
+      "title": "Heap Publish Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 16 },
+      "targets": [{
+        "expr": "rate(kubefn_heap_publishes_total[5m])"
+      }]
+    },
+    {
+      "title": "Heap Hit Rate",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 50 },
+            { "color": "green", "value": 80 }
+          ]}
+        }
+      },
+      "targets": [{
+        "expr": "kubefn_heap_hit_rate"
+      }]
+    },
+    {
+      "title": "Circuit Breaker Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 16 },
+      "targets": [{
+        "expr": "kubefn_breaker_trips_total"
+      }]
+    },
+    {
+      "title": "JVM Heap Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "decmbytes" } },
+      "targets": [{
+        "expr": "kubefn_jvm_heap_used_mb",
+        "legendFormat": "Used"
+      }, {
+        "expr": "kubefn_jvm_heap_max_mb",
+        "legendFormat": "Max"
+      }]
+    },
+    {
+      "title": "In-Flight Requests",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "targets": [{
+        "expr": "kubefn_requests_in_flight"
+      }]
+    },
+    {
+      "title": "Causal Trace Events",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 28 },
+      "targets": [{
+        "expr": "kubefn_causal_events_total"
+      }]
+    },
+    {
+      "title": "Function Groups",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 28 },
+      "targets": [{
+        "expr": "kubefn_function_groups"
+      }]
+    },
+    {
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 28 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [{
+        "expr": "kubefn_uptime_seconds"
+      }]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["kubefn", "memory-continuous"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "KubeFn — Live Application Fabric",
+  "uid": "kubefn-overview",
+  "version": 1
+}

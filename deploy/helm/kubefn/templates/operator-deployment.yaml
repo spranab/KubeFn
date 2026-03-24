@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "kubefn.fullname" . }}-operator
-  namespace: {{ include "kubefn.namespace" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubefn.labels" . | nindent 4 }}
     app.kubernetes.io/component: operator
