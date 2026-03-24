@@ -33,3 +33,4 @@ sonatype
 gradle.properties
 __pycache__/
 *.pyc
+docs-site/site/
