@@ -10,6 +10,7 @@ ADMIN_PORT="${KUBEFN_ADMIN_PORT:-8081}"
 RUNTIME_HOST="${KUBEFN_HOST:-localhost}"
 FUNCTIONS_DIR="${KUBEFN_FUNCTIONS_DIR:-/tmp/kubefn-functions}"
 NAMESPACE="${KUBEFN_NAMESPACE:-kubefn}"
+KUBEFN_VERSION="0.4.0"
 
 # Colors
 RED='\033[0;31m'
@@ -46,8 +47,9 @@ usage() {
     echo -e "  ${GREEN}version${NC}     Show version"
     echo ""
     echo -e "${BOLD}Init Options:${NC}"
-    echo -e "  kubefn init [--lang <language>] <name> <group>"
-    echo -e "  --lang    Language: java (default), kotlin, scala, groovy"
+    echo -e "  kubefn init [--lang <language>] [--package <pkg>] <project-name>"
+    echo -e "  --lang      Language: java (default), kotlin, scala, groovy"
+    echo -e "  --package   Base package (default: com.example)"
     echo ""
     echo -e "${BOLD}Environment:${NC}"
     echo "  KUBEFN_HOST        Runtime host (default: localhost)"
@@ -76,14 +78,15 @@ check_runtime() {
 # ─── INIT ───────────────────────────────────────────────────────
 cmd_init() {
     local lang="java"
+    local package="com.example"
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --lang) lang="$2"; shift 2 ;;
+            --package) package="$2"; shift 2 ;;
             *) break ;;
         esac
     done
-    local name="${1:-my-function}"
-    local group="${2:-my-service}"
+    local name="${1:-my-service}"
 
     # Validate language
     case "$lang" in
@@ -95,108 +98,284 @@ cmd_init() {
             ;;
     esac
 
-    echo -e "${BOLD}Scaffolding function: ${GREEN}${name}${NC} in group ${CYAN}${group}${NC} (${YELLOW}${lang}${NC})"
+    echo -e "${BOLD}Scaffolding KubeFn project: ${GREEN}${name}${NC} (${YELLOW}${lang}${NC}, package: ${CYAN}${package}${NC})"
 
     local dir="${name}"
+    local pkg_path
+    pkg_path=$(echo "${package}" | tr '.' '/')
+
     local className
     className=$(echo "${name}" | python3 -c "import sys; print(''.join(w.capitalize() for w in sys.stdin.read().strip().split('-')))")
 
-    case "$lang" in
-        java)
-            _init_java "${dir}" "${name}" "${group}" "${className}"
-            ;;
-        kotlin)
-            _init_kotlin "${dir}" "${name}" "${group}" "${className}"
-            ;;
-        scala)
-            _init_scala "${dir}" "${name}" "${group}" "${className}"
-            ;;
-        groovy)
-            _init_groovy "${dir}" "${name}" "${group}" "${className}"
-            ;;
-    esac
+    # Create directory structure
+    mkdir -p "${dir}/contracts/src/main/java/${pkg_path}/contracts"
+    mkdir -p "${dir}/functions/hello/src/main/java/${pkg_path}/functions"
+    mkdir -p "${dir}/.github/workflows"
 
-    echo ""
-    echo -e "${BOLD}Dependency (add to your build):${NC}"
-    echo ""
-    echo -e "  ${CYAN}Gradle:${NC}"
-    echo '    repositories { maven { url = uri("https://jitpack.io") } }'
-    echo '    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")'
-    echo ""
-    echo -e "  ${CYAN}Maven:${NC}"
-    echo "    <repository><id>jitpack.io</id><url>https://jitpack.io</url></repository>"
-    echo "    <dependency>"
-    echo "      <groupId>com.github.kubefn.kubefn</groupId>"
-    echo "      <artifactId>kubefn-api</artifactId>"
-    echo "      <version>v0.3.0</version>"
-    echo "      <scope>provided</scope>"
-    echo "    </dependency>"
-    echo ""
-    echo -e "${BOLD}Next steps:${NC}"
-
-    case "$lang" in
-        java)
-            echo "  1. Edit ${dir}/src/main/java/com/example/${className}Function.java"
-            echo "  2. Build: cd ${dir} && gradle jar   (or: mvn package)"
-            ;;
-        kotlin)
-            echo "  1. Edit ${dir}/src/main/kotlin/com/example/${className}Function.kt"
-            echo "  2. Build: cd ${dir} && gradle jar"
-            ;;
-        scala)
-            echo "  1. Edit ${dir}/src/main/scala/com/example/${className}Function.scala"
-            echo "  2. Build: cd ${dir} && gradle jar"
-            ;;
-        groovy)
-            echo "  1. Edit ${dir}/src/main/groovy/com/example/${className}Function.groovy"
-            echo "  2. Build: cd ${dir} && gradle jar"
-            ;;
-    esac
-    echo "  3. Deploy: kubefn deploy ${dir}/build/libs/${name}.jar ${group}"
-}
-
-# ─── INIT: Java ─────────────────────────────────────────────────
-_init_java() {
-    local dir="$1" name="$2" group="$3" className="$4"
-
-    mkdir -p "${dir}/src/main/java/com/example"
-
-    # build.gradle.kts
+    # ── Root build.gradle.kts ──
     cat > "${dir}/build.gradle.kts" << 'GRADLE'
 plugins {
     java
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+        mavenLocal()
+    }
 }
 
-repositories {
-    mavenCentral()
-    maven { url = uri("https://jitpack.io") }
-    mavenLocal()
-}
+subprojects {
+    apply(plugin = "java")
 
-dependencies {
-    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
-}
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
 
-tasks.withType<JavaCompile> {
-    options.compilerArgs.addAll(listOf("-parameters", "--enable-preview"))
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.addAll(listOf("-parameters"))
+    }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
 }
 GRADLE
 
-    # Function template
-    cat > "${dir}/src/main/java/com/example/${className}Function.java" << JAVA
-package com.example;
+    # ── settings.gradle.kts ──
+    cat > "${dir}/settings.gradle.kts" << SETTINGS
+rootProject.name = "${name}"
+
+include("contracts")
+include("functions:hello")
+SETTINGS
+
+    # ── gradle.properties ──
+    cat > "${dir}/gradle.properties" << PROPS
+kubefnVersion=${KUBEFN_VERSION}
+org.gradle.jvmargs=-Xmx512m
+PROPS
+
+    # ── .gitignore ──
+    cat > "${dir}/.gitignore" << 'GITIGNORE'
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+*.log
+/tmp/
+GITIGNORE
+
+    # ── contracts/build.gradle.kts ──
+    cat > "${dir}/contracts/build.gradle.kts" << CONTRACTS_GRADLE
+dependencies {
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v${KUBEFN_VERSION}")
+}
+CONTRACTS_GRADLE
+
+    # ── HeapKeys.java ──
+    cat > "${dir}/contracts/src/main/java/${pkg_path}/contracts/HeapKeys.java" << HEAPKEYS
+package ${package}.contracts;
+
+import com.kubefn.api.HeapKey;
+
+/**
+ * Central registry of all HeapExchange keys for this project.
+ *
+ * <p>Every heap key used across functions is defined here as a typed {@link HeapKey}.
+ * This eliminates string typos AND type mismatches at compile time.
+ *
+ * <h3>Usage:</h3>
+ * <pre>{@code
+ * // Read — compile-time safe
+ * OrderResult order = ctx.heap().require(HeapKeys.ORDER);
+ *
+ * // Write — type-checked
+ * ctx.heap().publish(HeapKeys.ORDER, orderResult);
+ * }</pre>
+ */
+public final class HeapKeys {
+
+    private HeapKeys() {}
+
+    /** Order result. Published by order processing functions. */
+    public static final HeapKey<OrderResult> ORDER =
+            HeapKey.of("order:result", OrderResult.class);
+}
+HEAPKEYS
+
+    # ── OrderResult.java ──
+    cat > "${dir}/contracts/src/main/java/${pkg_path}/contracts/OrderResult.java" << ORDERRESULT
+package ${package}.contracts;
+
+/**
+ * Sample contract type representing an order result.
+ *
+ * <p>Contract types are shared between functions via HeapExchange.
+ * Use Java records for immutability — once published, data cannot
+ * be accidentally mutated by a consumer.
+ *
+ * <p>Heap key: {@code order:result} (see {@link HeapKeys#ORDER})
+ */
+public record OrderResult(
+        String orderId,
+        String status,
+        double total,
+        String message
+) {}
+ORDERRESULT
+
+    # ── functions/hello/build.gradle.kts ──
+    cat > "${dir}/functions/hello/build.gradle.kts" << FUNC_GRADLE
+dependencies {
+    compileOnly("com.github.kubefn.kubefn:kubefn-api:v${KUBEFN_VERSION}")
+    compileOnly(project(":contracts"))
+
+    testImplementation("com.github.kubefn.kubefn:kubefn-testing:v${KUBEFN_VERSION}")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+}
+
+tasks.jar {
+    archiveBaseName.set("hello-function")
+}
+FUNC_GRADLE
+
+    # ── HelloFunction.java ──
+    cat > "${dir}/functions/hello/src/main/java/${pkg_path}/functions/HelloFunction.java" << HELLO
+package ${package}.functions;
 
 import com.kubefn.api.*;
-import java.util.Map;
+import ${package}.contracts.HeapKeys;
+import ${package}.contracts.OrderResult;
 
-@FnRoute(path = "/${name}", methods = {"GET", "POST"})
-@FnGroup("${group}")
-public class ${className}Function implements KubeFnHandler, FnContextAware {
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Sample KubeFn function demonstrating HeapExchange patterns.
+ *
+ * <p>This function:
+ * <ol>
+ *   <li>Reads an optional OrderResult from heap (if a previous step published one)</li>
+ *   <li>Creates and publishes a new OrderResult to heap</li>
+ *   <li>Returns a response to the HTTP caller</li>
+ * </ol>
+ *
+ * <p>Other functions in this group can read the published OrderResult
+ * with zero-copy, zero-serialization via:
+ * <pre>{@code
+ * OrderResult order = ctx.heap().require(HeapKeys.ORDER);
+ * }</pre>
+ */
+@FnRoute(path = "/hello", methods = {"GET", "POST"})
+@FnGroup("${name}")
+public class HelloFunction implements KubeFnHandler, FnContextAware {
+
+    private FnContext ctx;
+
+    @Override
+    public void setContext(FnContext context) {
+        this.ctx = context;
+    }
+
+    @Override
+    public KubeFnResponse handle(KubeFnRequest request) throws Exception {
+        HeapExchange heap = ctx.heap();
+
+        // Read from heap — check if a previous function published an order
+        var existing = heap.get(HeapKeys.ORDER);
+
+        String name = request.queryParam("name").orElse("World");
+        String orderId = "ORD-" + UUID.randomUUID().toString().substring(0, 8);
+
+        // Create a typed contract object
+        OrderResult order = new OrderResult(
+            orderId,
+            "created",
+            42.00,
+            "Hello, " + name + "!"
+        );
+
+        // Publish to heap — siblings receive the SAME Java reference (zero-copy)
+        heap.publish(HeapKeys.ORDER, order);
+
+        ctx.logger().info("HelloFunction: published OrderResult orderId={}", orderId);
+
+        return KubeFnResponse.ok(Map.of(
+            "orderId", order.orderId(),
+            "status", order.status(),
+            "total", order.total(),
+            "message", order.message(),
+            "previousOrderExists", existing.isPresent()
+        ));
+    }
+}
+HELLO
+
+    # ── CLAUDE.md ──
+    cat > "${dir}/CLAUDE.md" << 'CLAUDEMD'
+# KubeFn Function Development Rules
+
+## What is this project
+A KubeFn function project. Functions share a JVM heap via HeapExchange — zero-copy, zero-serialization object sharing between independently deployed functions.
+
+## Project Structure
+```
+contracts/    → Shared type definitions + HeapKey constants
+functions/    → Individual function modules (each becomes a thin JAR)
+```
+
+## Critical Rules
+1. **NEVER serialize/deserialize heap objects** — they are shared references, not messages
+2. **ALWAYS use contract types** from the contracts module — never raw Map
+3. **ALWAYS use HeapKeys constants** — never hardcode key strings
+4. **ALWAYS handle Optional.empty()** — the producer might not have run yet
+5. **NEVER mutate objects read from heap** — treat them as immutable (use records)
+6. **Functions are stateless** — all shared state goes through HeapExchange
+
+## HeapExchange API
+```java
+ctx.heap().publish(HeapKeys.ORDER, orderResult);         // Publish (zero-copy)
+ctx.heap().require(HeapKeys.ORDER);                       // Read or throw
+ctx.heap().get(HeapKeys.ORDER);                           // Read → Optional<T>
+ctx.heap().getOrDefault(HeapKeys.ORDER, fallback);        // Read with default
+ctx.heap().contains(HeapKeys.ORDER);                      // Check existence
+ctx.heap().remove(HeapKeys.ORDER);                        // Remove
+ctx.heap().keys();                                        // List all keys
+```
+
+## How to Create a Function
+
+### 1. Define contracts (contracts module)
+```java
+// Contract type — always use records for immutability
+public record OrderResult(String orderId, String status, double total) {}
+
+// HeapKey — typed, compile-time safe
+public static final HeapKey<OrderResult> ORDER = HeapKey.of("order:result", OrderResult.class);
+```
+
+### 2. Implement the function
+```java
+@FnRoute(path = "/my/endpoint", methods = {"GET", "POST"})
+@FnGroup("my-service")
+public class MyFunction implements KubeFnHandler, FnContextAware {
     private FnContext ctx;
 
     @Override
@@ -204,245 +383,185 @@ public class ${className}Function implements KubeFnHandler, FnContextAware {
 
     @Override
     public KubeFnResponse handle(KubeFnRequest request) throws Exception {
-        // Your function logic here
-        // Access shared heap: ctx.heap().get("key", Type.class)
-        // Call siblings: ctx.getFunction(OtherFunction.class).handle(request)
+        // Read from heap (zero-copy)
+        OrderResult order = ctx.heap().require(HeapKeys.ORDER);
 
-        return KubeFnResponse.ok(Map.of(
-            "message", "Hello from ${name}!",
-            "group", ctx.groupName(),
-            "revision", ctx.revisionId()
-        ));
+        // Publish to heap (zero-copy)
+        ctx.heap().publish(HeapKeys.ORDER, newOrder);
+
+        return KubeFnResponse.ok(Map.of("result", "done"));
     }
 }
-JAVA
+```
 
-    # Also generate pom.xml for Maven users
-    cat > "${dir}/pom.xml" << MAVEN
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+### 3. Test with kubefn-testing
+```java
+@Test
+void publishesOrder() {
+    var heap = FakeHeapExchange.create();
+    var ctx = FakeFnContext.of(heap);
+    var fn = new MyFunction();
+    fn.setContext(ctx);
 
-    <groupId>com.example</groupId>
-    <artifactId>${name}</artifactId>
-    <version>1.0.0</version>
-    <packaging>jar</packaging>
+    fn.handle(TestRequest.empty());
 
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
-
-    <dependencies>
-        <dependency>
-            <groupId>com.github.kubefn.kubefn</groupId>
-            <artifactId>kubefn-api</artifactId>
-            <version>v0.3.0</version>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <release>21</release>
-                    <compilerArgs>
-                        <arg>--enable-preview</arg>
-                        <arg>-parameters</arg>
-                    </compilerArgs>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>
-MAVEN
-
-    echo -e "${GREEN}Created (Java):${NC}"
-    echo "  ${dir}/build.gradle.kts  (Gradle)"
-    echo "  ${dir}/pom.xml           (Maven)"
-    echo "  ${dir}/src/main/java/com/example/${className}Function.java"
+    OrderResult order = heap.require(HeapKeys.ORDER);
+    assertEquals("created", order.status());
 }
+```
 
-# ─── INIT: Kotlin ───────────────────────────────────────────────
-_init_kotlin() {
-    local dir="$1" name="$2" group="$3" className="$4"
+## Dependencies (layered classpath)
+```gradle
+compileOnly("com.kubefn:kubefn-api:0.4.0")        // Layer 1: interfaces
+compileOnly(project(":contracts"))                  // Layer 2: your contracts
+testImplementation("com.kubefn:kubefn-testing:0.4.0") // Testing fakes
+```
 
-    mkdir -p "${dir}/src/main/kotlin/com/example"
+## Commands
+```bash
+kubefn dev        # Local dev with hot-reload
+kubefn deploy     # Deploy to runtime
+kubefn heap       # Inspect HeapExchange
+kubefn functions  # List deployed functions
+kubefn status     # Runtime status
+```
+CLAUDEMD
 
-    cat > "${dir}/build.gradle.kts" << 'GRADLE'
-plugins {
-    kotlin("jvm") version "2.1.10"
-}
+    # ── README.md ──
+    cat > "${dir}/README.md" << README
+# ${name}
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
+A KubeFn function project using shared-memory HeapExchange for zero-copy data sharing.
 
-repositories {
-    mavenCentral()
-    maven { url = uri("https://jitpack.io") }
-    mavenLocal()
-}
+## Quick Start
 
-dependencies {
-    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
-}
-GRADLE
+\`\`\`bash
+# Build
+./gradlew build
 
-    cat > "${dir}/src/main/kotlin/com/example/${className}Function.kt" << KOTLIN
-package com.example
+# Run tests
+./gradlew test
 
-import com.kubefn.api.*
+# Build function JARs
+./gradlew jar
 
-@FnRoute(path = "/${name}", methods = ["GET", "POST"])
-@FnGroup("${group}")
-class ${className}Function : KubeFnHandler, FnContextAware {
-    private lateinit var ctx: FnContext
+# Deploy to local runtime
+kubefn dev                                    # Start runtime in another terminal
+kubefn deploy functions/hello/build/libs/hello-function.jar ${name}
+\`\`\`
 
-    override fun setContext(context: FnContext) { ctx = context }
+## Project Structure
 
-    override fun handle(request: KubeFnRequest): KubeFnResponse {
-        val name = request.queryParam("name").orElse("World")
-        return KubeFnResponse.ok(mapOf(
-            "message" to "Hello from Kotlin, \$name!",
-            "group" to ctx.groupName(),
-            "revision" to ctx.revisionId()
-        ))
-    }
-}
-KOTLIN
+- **contracts/** — Shared types and HeapKey constants. All functions depend on this.
+- **functions/hello/** — Sample function demonstrating HeapExchange patterns.
 
-    echo -e "${GREEN}Created (Kotlin):${NC}"
-    echo "  ${dir}/build.gradle.kts"
-    echo "  ${dir}/src/main/kotlin/com/example/${className}Function.kt"
-}
+## Adding a New Function
 
-# ─── INIT: Scala ────────────────────────────────────────────────
-_init_scala() {
-    local dir="$1" name="$2" group="$3" className="$4"
+1. Create a new module: \`functions/my-function/\`
+2. Add to \`settings.gradle.kts\`: \`include("functions:my-function")\`
+3. Add contracts to \`contracts/\` if needed
+4. Implement \`KubeFnHandler\` with \`@FnRoute\` and \`@FnGroup\`
 
-    mkdir -p "${dir}/src/main/scala/com/example"
+## Learn More
 
-    cat > "${dir}/build.gradle.kts" << 'GRADLE'
-plugins {
-    scala
-}
+See the [KubeFn documentation](https://github.com/kubefn/kubefn) for patterns, API reference, and deployment guides.
+README
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
+    # ── .github/workflows/kubefn-ci.yml ──
+    cat > "${dir}/.github/workflows/kubefn-ci.yml" << 'CIWORKFLOW'
+name: KubeFn CI
 
-repositories {
-    mavenCentral()
-    maven { url = uri("https://jitpack.io") }
-    mavenLocal()
-}
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-dependencies {
-    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
-    implementation("org.scala-lang:scala3-library_3:3.6.4")
-}
-GRADLE
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    cat > "${dir}/src/main/scala/com/example/${className}Function.scala" << SCALA
-package com.example
+    steps:
+      - uses: actions/checkout@v4
 
-import com.kubefn.api._
-import java.util.{Map => JMap}
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
-@FnRoute(path = "/${name}", methods = Array("GET", "POST"))
-@FnGroup("${group}")
-class ${className}Function extends KubeFnHandler with FnContextAware {
-  private var ctx: FnContext = _
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-  override def setContext(context: FnContext): Unit = { ctx = context }
+      - name: Build
+        run: ./gradlew build
 
-  override def handle(request: KubeFnRequest): KubeFnResponse = {
-    val name = request.queryParam("name").orElse("World")
-    KubeFnResponse.ok(JMap.of(
-      "message", s"Hello from Scala, \$name!",
-      "group", ctx.groupName(),
-      "revision", ctx.revisionId()
-    ))
-  }
-}
-SCALA
+      - name: Run tests
+        run: ./gradlew test
 
-    echo -e "${GREEN}Created (Scala):${NC}"
-    echo "  ${dir}/build.gradle.kts"
-    echo "  ${dir}/src/main/scala/com/example/${className}Function.scala"
-}
+      - name: Build function JARs
+        run: ./gradlew jar
 
-# ─── INIT: Groovy ───────────────────────────────────────────────
-_init_groovy() {
-    local dir="$1" name="$2" group="$3" className="$4"
+      - name: Upload function JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: function-jars
+          path: functions/*/build/libs/*.jar
 
-    mkdir -p "${dir}/src/main/groovy/com/example"
+  # Uncomment to enable automatic deployment
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Download JARs
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: function-jars
+  #         path: jars/
+  #     - name: Deploy to KubeFn
+  #       run: |
+  #         for jar in jars/**/*.jar; do
+  #           kubefn deploy "$jar" "${{ github.event.repository.name }}"
+  #         done
+CIWORKFLOW
 
-    cat > "${dir}/build.gradle.kts" << 'GRADLE'
-plugins {
-    groovy
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
-repositories {
-    mavenCentral()
-    maven { url = uri("https://jitpack.io") }
-    mavenLocal()
-}
-
-dependencies {
-    compileOnly("com.github.kubefn.kubefn:kubefn-api:v0.3.0")
-    implementation("org.apache.groovy:groovy:4.0.27")
-}
-GRADLE
-
-    cat > "${dir}/src/main/groovy/com/example/${className}Function.groovy" << GROOVY
-package com.example
-
-import com.kubefn.api.*
-
-@FnRoute(path = "/${name}", methods = ["GET", "POST"])
-@FnGroup("${group}")
-class ${className}Function implements KubeFnHandler, FnContextAware {
-    FnContext ctx
-
-    void setContext(FnContext context) { this.ctx = context }
-
-    KubeFnResponse handle(KubeFnRequest request) {
-        def name = request.queryParam("name").orElse("World")
-        KubeFnResponse.ok([
-            message: "Hello from Groovy, \${name}!",
-            group: ctx.groupName(),
-            revision: ctx.revisionId()
-        ])
-    }
-}
-GROOVY
-
-    echo -e "${GREEN}Created (Groovy):${NC}"
-    echo "  ${dir}/build.gradle.kts"
-    echo "  ${dir}/src/main/groovy/com/example/${className}Function.groovy"
+    echo ""
+    echo -e "${GREEN}Created KubeFn project: ${BOLD}${name}/${NC}"
+    echo ""
+    echo -e "  ${dir}/"
+    echo -e "  ├── CLAUDE.md"
+    echo -e "  ├── README.md"
+    echo -e "  ├── build.gradle.kts"
+    echo -e "  ├── settings.gradle.kts"
+    echo -e "  ├── gradle.properties"
+    echo -e "  ├── .gitignore"
+    echo -e "  ├── contracts/"
+    echo -e "  │   ├── build.gradle.kts"
+    echo -e "  │   └── src/main/java/${pkg_path}/contracts/"
+    echo -e "  │       ├── HeapKeys.java"
+    echo -e "  │       └── OrderResult.java"
+    echo -e "  ├── functions/"
+    echo -e "  │   └── hello/"
+    echo -e "  │       ├── build.gradle.kts"
+    echo -e "  │       └── src/main/java/${pkg_path}/functions/"
+    echo -e "  │           └── HelloFunction.java"
+    echo -e "  └── .github/workflows/"
+    echo -e "      └── kubefn-ci.yml"
+    echo ""
+    echo -e "${BOLD}Next steps:${NC}"
+    echo "  1. cd ${name}"
+    echo "  2. gradle wrapper   (or copy gradle wrapper from an existing project)"
+    echo "  3. ./gradlew build"
+    echo "  4. Edit functions/hello/src/main/java/${pkg_path}/functions/HelloFunction.java"
+    echo "  5. kubefn dev       (start local runtime)"
+    echo "  6. kubefn deploy functions/hello/build/libs/hello-function.jar ${name}"
+    echo ""
+    echo -e "${BOLD}Add a new function:${NC}"
+    echo "  1. mkdir -p functions/my-function/src/main/java/${pkg_path}/functions"
+    echo "  2. Add include(\"functions:my-function\") to settings.gradle.kts"
+    echo "  3. Implement KubeFnHandler with @FnRoute and @FnGroup"
 }
 
 # ─── DEV ────────────────────────────────────────────────────────

@@ -1,0 +1,83 @@
+{
+  "name": "kubefn",
+  "displayName": "KubeFn — Live Application Fabric",
+  "description": "HeapExchange autocomplete, function snippets, and heap explorer for KubeFn",
+  "version": "0.1.0",
+  "publisher": "kubefn",
+  "repository": "https://github.com/kubefn/kubefn",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Snippets",
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/kubefn-api/**",
+    "workspaceContains:**/CLAUDE.md"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "KubeFn",
+      "properties": {
+        "kubefn.organismUrl": {
+          "type": "string",
+          "default": "http://localhost:8081",
+          "description": "URL of the KubeFn runtime admin endpoint"
+        }
+      }
+    },
+    "snippets": [
+      {
+        "language": "java",
+        "path": "./snippets/kubefn-java.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kubefn-explorer",
+          "title": "KubeFn",
+          "icon": "media/kubefn-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "kubefn-explorer": [
+        {
+          "id": "kubefn.heapExplorer",
+          "name": "Heap Explorer"
+        },
+        {
+          "id": "kubefn.functions",
+          "name": "Functions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "kubefn.refreshHeap",
+        "title": "KubeFn: Refresh Heap"
+      },
+      {
+        "command": "kubefn.showTrace",
+        "title": "KubeFn: Show Trace"
+      },
+      {
+        "command": "kubefn.newFunction",
+        "title": "KubeFn: New Function"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

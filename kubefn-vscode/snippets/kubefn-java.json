@@ -1,0 +1,97 @@
+{
+  "KubeFn Handler": {
+    "prefix": "kubefn-handler",
+    "body": [
+      "@FnRoute(path = \"/${1:path}\", methods = {\"${2|GET,POST,PUT,DELETE|}\"})",
+      "@FnGroup(\"${3:group}\")",
+      "public class ${4:Name}Function implements KubeFnHandler, FnContextAware {",
+      "    private FnContext ctx;",
+      "",
+      "    @Override",
+      "    public void setContext(FnContext context) { this.ctx = context; }",
+      "",
+      "    @Override",
+      "    public KubeFnResponse handle(KubeFnRequest request) throws Exception {",
+      "        $0",
+      "        return KubeFnResponse.ok(Map.of(\"status\", \"ok\"));",
+      "    }",
+      "}"
+    ],
+    "description": "KubeFn function handler with route, group, and context"
+  },
+  "Heap Read": {
+    "prefix": "kubefn-heap-read",
+    "body": [
+      "${1:Type} ${2:var} = ctx.heap()",
+      "    .get(HeapKeys.${3:KEY}, ${1:Type}.class)",
+      "    .orElseThrow(() -> new IllegalStateException(\"${3:KEY} not on heap\"));"
+    ],
+    "description": "Read typed object from HeapExchange (zero-copy)"
+  },
+  "Heap Read with Fallback": {
+    "prefix": "kubefn-heap-read-fallback",
+    "body": [
+      "${1:Type} ${2:var} = ctx.heap()",
+      "    .get(HeapKeys.${3:KEY}, ${1:Type}.class)",
+      "    .orElse(${4:defaultValue});"
+    ],
+    "description": "Read from HeapExchange with fallback value"
+  },
+  "Heap Write": {
+    "prefix": "kubefn-heap-write",
+    "body": [
+      "ctx.heap().publish(HeapKeys.${1:KEY}, ${2:value}, ${3:Type}.class);"
+    ],
+    "description": "Publish typed object to HeapExchange (zero-copy)"
+  },
+  "KubeFn Test": {
+    "prefix": "kubefn-test",
+    "body": [
+      "@Test",
+      "void ${1:testName}() {",
+      "    var heap = FakeHeapExchange.create()",
+      "        .with(HeapKeys.${2:INPUT_KEY}, ${3:testData});",
+      "    var ctx = FakeFnContext.of(heap);",
+      "    var fn = new ${4:Function}();",
+      "    fn.setContext(ctx);",
+      "",
+      "    var response = fn.handle(TestRequest.empty());",
+      "",
+      "    assertEquals(200, response.statusCode());",
+      "    assertNotNull(heap.get(HeapKeys.${5:OUTPUT_KEY}));",
+      "}"
+    ],
+    "description": "KubeFn function test with FakeHeapExchange"
+  },
+  "KubeFn Pipeline": {
+    "prefix": "kubefn-pipeline",
+    "body": [
+      "var result = PipelineBuilder.create(ctx, request)",
+      "    .step(\"${1:step1}\", ${2:Function1}.class)",
+      "    .step(\"${3:step2}\", ${4:Function2}.class)",
+      "    .execute();"
+    ],
+    "description": "KubeFn pipeline composition with PipelineBuilder"
+  },
+  "KubeFn Schedule": {
+    "prefix": "kubefn-schedule",
+    "body": [
+      "@FnSchedule(cron = \"${1:0 */5 * * *}\", runOnStart = ${2|true,false|}, timeoutMs = ${3:60000})"
+    ],
+    "description": "Scheduled function annotation"
+  },
+  "HeapReader Require": {
+    "prefix": "kubefn-require",
+    "body": [
+      "${1:Type} ${2:var} = HeapReader.require(ctx, HeapKeys.${3:KEY}, ${1:Type}.class);"
+    ],
+    "description": "Read required value from heap using HeapReader utility"
+  },
+  "HeapPublisher Publish": {
+    "prefix": "kubefn-publish",
+    "body": [
+      "HeapPublisher.publish(ctx, HeapKeys.${1:KEY}, ${2:value});"
+    ],
+    "description": "Publish to heap using HeapPublisher utility"
+  }
+}
