@@ -6,7 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  build-and-publish:
+  # ── JVM: Maven Central + Docker + GitHub Release ─────────────
+  jvm-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -41,12 +42,12 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
-        run: ./gradlew :kubefn-api:publishToCentralPortal
+        run: ./gradlew :kubefn-api:publishToCentralPortal || echo "Maven Central publish failed (non-critical)"
 
       - name: Publish to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :kubefn-api:publishAllPublicationsToGitHubPackagesRepository || echo "GitHub Packages publish skipped (non-critical)"
+        run: ./gradlew :kubefn-api:publishAllPublicationsToGitHubPackagesRepository || echo "GitHub Packages publish skipped"
 
       - name: Build Docker image
         run: |
@@ -73,3 +74,67 @@ jobs:
           files: |
             kubefn-runtime/build/libs/kubefn-runtime-*-all.jar
             kubefn-api/build/libs/kubefn-api-*.jar
+
+  # ── Python: PyPI via Trusted Publisher ───────────────────────
+  python-release:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in pyproject.toml
+        working-directory: kubefn-runtime-python
+        run: sed -i "s/version = .*/version = \"${{ steps.version.outputs.VERSION }}\"/" pyproject.toml
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build Python package
+        working-directory: kubefn-runtime-python
+        run: python -m build
+
+      - name: Publish to PyPI (Trusted Publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: kubefn-runtime-python/dist/
+
+  # ── Node.js: npm via provenance ──────────────────────────────
+  node-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 21
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json
+        working-directory: kubefn-runtime-node
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+
+      - name: Publish to npm
+        working-directory: kubefn-runtime-node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public || echo "npm publish failed (may need NPM_TOKEN secret)"

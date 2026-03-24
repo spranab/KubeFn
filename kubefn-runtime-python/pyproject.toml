@@ -4,13 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kubefn"
-version = "0.3.1"
-description = "KubeFn Python Runtime — Memory-Continuous Architecture"
+version = "0.5.0"
+description = "KubeFn Python Runtime — Live Application Fabric for Memory-Continuous Architecture"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [{name = "Pranab Sarkar", email = "developer@pranab.co.in"}]
-urls = {Homepage = "https://kubefn.com", GitHub = "https://github.com/kubefn/kubefn"}
+keywords = ["kubefn", "faas", "functions", "shared-memory", "zero-copy", "kubernetes", "heap-exchange"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: System :: Distributed Computing",
+]
+
+[project.urls]
+Homepage = "https://kubefn.com"
+GitHub = "https://github.com/kubefn/kubefn"
+Documentation = "https://kubefn.com"
+"Bug Tracker" = "https://github.com/kubefn/kubefn/issues"
 
 [project.scripts]
 kubefn-python = "kubefn.__main__:main"
