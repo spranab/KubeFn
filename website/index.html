@@ -916,6 +916,36 @@ ctx.<span class="fn">heap</span>().<span class="fn">publish</span>(<span class="
         </div>
     </section>
 
+    <!-- KubeFn Lite -->
+    <section class="code-section" id="lite">
+        <div class="container">
+            <h2>No Kubernetes? Try KubeFn Lite</h2>
+            <p class="subtitle">Same HeapExchange. Same FnGraph. Same hot-swap. Zero infrastructure.</p>
+<pre><span class="cm"># Install from ClawHub or pip</span>
+<span class="cmd">pip install kubefn-lite</span>
+
+<span class="cm"># Deploy a function</span>
+engine.<span class="fn">deploy</span>(
+    name=<span class="str">"pricing"</span>,
+    source_code=<span class="str">'def handler(input): return {"price": input["qty"] * 9.99}'</span>,
+    entry_point=<span class="str">"handler"</span>
+)
+
+<span class="cm"># Compose a pipeline — shared memory, zero serialization</span>
+result = engine.<span class="fn">run_graph</span>({
+    <span class="str">"stages"</span>: [{<span class="str">"function"</span>: <span class="str">"pricing"</span>}, {<span class="str">"function"</span>: <span class="str">"tax"</span>}]
+})
+
+<span class="cm"># Hot-swap live — no restart</span>
+engine.<span class="fn">hot_swap</span>(<span class="str">"pricing"</span>, new_source_code)</pre>
+            <p style="color: var(--text-dim); margin-top: 16px; font-size: 0.9rem;">
+                <a href="https://github.com/kubefn/kubefn-lite" style="color: var(--accent);">GitHub</a> &middot;
+                20 tests passing &middot; Python + Node.js + JVM &middot;
+                Ready for production? → <a href="#install" style="color: var(--accent);">Deploy on Kubernetes</a>
+            </p>
+        </div>
+    </section>
+
     <!-- Code Example -->
     <section class="code-section" id="quickstart">
         <div class="container">
