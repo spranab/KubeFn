@@ -421,7 +421,7 @@ function executeWithDeadline(fn, timeoutMs, context) {
 
     if (timer.unref) timer.unref();
 
-    fn().then(
+    Promise.resolve(fn()).then(
       (result) => {
         if (!settled) { settled = true; clearTimeout(timer); resolve(result); }
       },

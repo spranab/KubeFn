@@ -32,7 +32,8 @@ export class TimeoutError extends Error {
  */
 export function executeWithTimeout(fn, timeoutMs, context) {
   if (!timeoutMs || timeoutMs <= 0) {
-    return fn();
+    // Wrap sync returns in Promise.resolve for uniform async handling
+    return Promise.resolve(fn());
   }
 
   return new Promise((resolve, reject) => {
@@ -48,7 +49,7 @@ export function executeWithTimeout(fn, timeoutMs, context) {
     // Ensure the timer does not keep the process alive during shutdown
     if (timer.unref) timer.unref();
 
-    fn().then(
+    Promise.resolve(fn()).then(
       (result) => {
         if (!settled) {
           settled = true;
