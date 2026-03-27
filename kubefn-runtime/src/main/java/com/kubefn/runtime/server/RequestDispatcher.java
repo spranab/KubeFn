@@ -267,7 +267,13 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
             boolean shouldValue = capturePolicy.shouldCaptureValue(
                     functionName, revisionId, false, durationNanos, body.length);
             if (shouldValue) {
-                captureBuilder.withValueCapture(body, "json", null, null);
+                byte[] outputBytes = null;
+                try {
+                    if (response.body() != null) {
+                        outputBytes = objectMapper.writeValueAsBytes(response.body());
+                    }
+                } catch (Exception ignored) {}
+                captureBuilder.withValueCapture(body, "json", outputBytes, "json");
             }
             captureStore.store(captureBuilder.build());
 

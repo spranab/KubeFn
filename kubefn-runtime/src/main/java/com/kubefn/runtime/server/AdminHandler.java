@@ -247,6 +247,36 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
             case "/admin/captures/policy" -> responseBody = capturePolicy != null
                     ? capturePolicy.status() : Map.of("error", "Capture policy not enabled");
 
+            case "/admin/replay" -> {
+                if (captureStore != null && "POST".equals(httpMethod)) {
+                    String invocationId = parseParam(query, "id");
+                    if (invocationId != null) {
+                        // Replay single invocation
+                        var capture = captureStore.findById(invocationId);
+                        if (capture.isPresent()) {
+                            var executor = new com.kubefn.runtime.replay.ReplayExecutor(router, objectMapper);
+                            var result = executor.replay(capture.get());
+                            responseBody = result.toMap();
+                        } else {
+                            responseBody = Map.of("error", "Invocation not found: " + invocationId);
+                        }
+                    } else {
+                        // Replay all VALUE captures (batch validation)
+                        int limit = parseIntParam(query, "limit", 100);
+                        var captures = captureStore.recentValues(limit);
+                        var executor = new com.kubefn.runtime.replay.ReplayExecutor(router, objectMapper);
+                        var result = executor.replayBatch(captures);
+                        responseBody = result.toMap();
+                    }
+                } else {
+                    responseBody = Map.of(
+                            "usage", "POST /admin/replay?id=<invocationId> to replay one",
+                            "batch", "POST /admin/replay to replay all VALUE captures",
+                            "valueCapturesAvailable", captureStore != null ? captureStore.recentValues(1).size() : 0
+                    );
+                }
+            }
+
             case "/admin/memory/breaker" -> responseBody = memoryBreaker != null
                     ? memoryBreaker.getStatus() : Map.of("error", "Memory breaker not enabled");
 
