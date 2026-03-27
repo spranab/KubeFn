@@ -5,6 +5,8 @@ import com.kubefn.runtime.config.RuntimeConfig;
 import com.kubefn.runtime.heap.HeapLifecycle;
 import com.kubefn.runtime.introspection.CausalCaptureEngine;
 import com.kubefn.runtime.lifecycle.DrainManager;
+import com.kubefn.runtime.replay.CapturePolicy;
+import com.kubefn.runtime.replay.CaptureStore;
 import com.kubefn.runtime.resilience.FallbackRegistry;
 import com.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import com.kubefn.runtime.routing.FunctionRouter;
@@ -37,6 +39,8 @@ public class NettyServer {
     private final DrainManager drainManager;
     private final CausalCaptureEngine captureEngine;
     private final HeapLifecycle heapLifecycle;
+    private final CaptureStore captureStore;
+    private final CapturePolicy capturePolicy;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -55,6 +59,8 @@ public class NettyServer {
         this.drainManager = drainManager;
         this.captureEngine = captureEngine;
         this.heapLifecycle = heapLifecycle;
+        this.captureStore = new CaptureStore();
+        this.capturePolicy = new CapturePolicy();
         this.objectMapper = new ObjectMapper();
         this.objectMapper.findAndRegisterModules();
         this.functionExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -76,7 +82,8 @@ public class NettyServer {
                         pipeline.addLast(new RequestDispatcher(
                                 router, functionExecutor, objectMapper, config,
                                 circuitBreaker, fallbackRegistry, drainManager,
-                                captureEngine, heapLifecycle));
+                                captureEngine, heapLifecycle,
+                                captureStore, capturePolicy));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 1024)
@@ -118,4 +125,6 @@ public class NettyServer {
     public FunctionRouter router() { return router; }
     public ObjectMapper objectMapper() { return objectMapper; }
     public FunctionCircuitBreaker circuitBreaker() { return circuitBreaker; }
+    public CaptureStore captureStore() { return captureStore; }
+    public CapturePolicy capturePolicy() { return capturePolicy; }
 }

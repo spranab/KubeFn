@@ -115,7 +115,8 @@ public class KubeFnMain {
         startAdminServer(config, router, server.objectMapper(),
                 heapExchange, circuitBreaker, captureEngine, replayEngine,
                 prometheusExporter, heapLifecycle, resourceManager,
-                memoryBudget, memoryBreaker, gcMonitor);
+                memoryBudget, memoryBreaker, gcMonitor,
+                server.captureStore(), server.capturePolicy());
 
         // ── Load functions ──────────────────────────────────────
         if (Files.exists(config.functionsDir())) {
@@ -168,7 +169,9 @@ public class KubeFnMain {
                                          SharedResourceManager resourceManager,
                                          GroupMemoryBudget memoryBudget,
                                          MemoryCircuitBreaker memoryBreaker,
-                                         GCPressureMonitor gcMonitor)
+                                         GCPressureMonitor gcMonitor,
+                                         com.kubefn.runtime.replay.CaptureStore captureStore,
+                                         com.kubefn.runtime.replay.CapturePolicy capturePolicy)
             throws InterruptedException {
         adminBossGroup = new NioEventLoopGroup(1);
         adminWorkerGroup = new NioEventLoopGroup(1);
@@ -186,7 +189,8 @@ public class KubeFnMain {
                                 router, objectMapper, heapExchange, circuitBreaker,
                                 captureEngine, replayEngine, prometheusExporter,
                                 heapLifecycle, resourceManager,
-                                memoryBudget, memoryBreaker, gcMonitor));
+                                memoryBudget, memoryBreaker, gcMonitor,
+                                captureStore, capturePolicy));
                     }
                 });
 

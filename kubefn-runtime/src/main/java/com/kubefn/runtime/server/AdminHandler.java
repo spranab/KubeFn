@@ -42,6 +42,8 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private final GroupMemoryBudget memoryBudget;
     private final MemoryCircuitBreaker memoryBreaker;
     private final GCPressureMonitor gcMonitor;
+    private final com.kubefn.runtime.replay.CaptureStore captureStore;
+    private final com.kubefn.runtime.replay.CapturePolicy capturePolicy;
     private final AdminAuth auth;
     private byte[] traceUiHtml;
 
@@ -51,7 +53,9 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
                         PrometheusExporter prometheusExporter, HeapLifecycle heapLifecycle,
                         SharedResourceManager resourceManager,
                         GroupMemoryBudget memoryBudget, MemoryCircuitBreaker memoryBreaker,
-                        GCPressureMonitor gcMonitor) {
+                        GCPressureMonitor gcMonitor,
+                        com.kubefn.runtime.replay.CaptureStore captureStore,
+                        com.kubefn.runtime.replay.CapturePolicy capturePolicy) {
         this.router = router;
         this.objectMapper = objectMapper;
         this.heapExchange = heapExchange;
@@ -64,6 +68,8 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         this.memoryBudget = memoryBudget;
         this.memoryBreaker = memoryBreaker;
         this.gcMonitor = gcMonitor;
+        this.captureStore = captureStore;
+        this.capturePolicy = capturePolicy;
         this.auth = new AdminAuth();
         loadTraceUi();
     }
@@ -204,6 +210,42 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
             case "/admin/gc" -> responseBody = gcMonitor != null
                     ? gcMonitor.getStatus() : Map.of("error", "GC monitor not enabled");
+
+            case "/admin/captures" -> {
+                if (captureStore != null) {
+                    int limit = parseIntParam(query, "limit", 20);
+                    String fn = parseParam(query, "function");
+                    String level = parseParam(query, "level");
+                    java.util.List<?> captures;
+                    if ("value".equals(level)) {
+                        captures = captureStore.recentValues(limit).stream()
+                                .map(com.kubefn.runtime.replay.InvocationCapture::toMap).toList();
+                    } else if (fn != null) {
+                        captures = captureStore.forFunction(fn, limit).stream()
+                                .map(com.kubefn.runtime.replay.InvocationCapture::toMap).toList();
+                    } else {
+                        captures = captureStore.recent(limit).stream()
+                                .map(com.kubefn.runtime.replay.InvocationCapture::toMap).toList();
+                    }
+                    responseBody = Map.of("captures", captures, "store", captureStore.status());
+                } else {
+                    responseBody = Map.of("error", "Capture store not enabled");
+                }
+            }
+
+            case "/admin/captures/failures" -> {
+                if (captureStore != null) {
+                    int limit = parseIntParam(query, "limit", 20);
+                    var failures = captureStore.failures(limit).stream()
+                            .map(com.kubefn.runtime.replay.InvocationCapture::toMap).toList();
+                    responseBody = Map.of("failures", failures, "count", failures.size());
+                } else {
+                    responseBody = Map.of("error", "Capture store not enabled");
+                }
+            }
+
+            case "/admin/captures/policy" -> responseBody = capturePolicy != null
+                    ? capturePolicy.status() : Map.of("error", "Capture policy not enabled");
 
             case "/admin/memory/breaker" -> responseBody = memoryBreaker != null
                     ? memoryBreaker.getStatus() : Map.of("error", "Memory breaker not enabled");

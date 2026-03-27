@@ -10,6 +10,9 @@ import com.kubefn.runtime.introspection.CausalCaptureEngine;
 import com.kubefn.runtime.lifecycle.DrainManager;
 import com.kubefn.runtime.lifecycle.RevisionContext;
 import com.kubefn.runtime.metrics.KubeFnMetrics;
+import com.kubefn.runtime.replay.CapturePolicy;
+import com.kubefn.runtime.replay.CaptureStore;
+import com.kubefn.runtime.replay.InvocationCapture;
 import com.kubefn.runtime.resilience.FallbackRegistry;
 import com.kubefn.runtime.resilience.FunctionCircuitBreaker;
 import com.kubefn.runtime.routing.FunctionRouter;
@@ -55,6 +58,8 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
     private final DrainManager drainManager;
     private final CausalCaptureEngine captureEngine;
     private final HeapLifecycle heapLifecycle;
+    private final CaptureStore captureStore;
+    private final CapturePolicy capturePolicy;
     private final Map<String, Semaphore> groupSemaphores;
 
     public RequestDispatcher(FunctionRouter router, ExecutorService executor,
@@ -63,7 +68,9 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
                              FallbackRegistry fallbackRegistry,
                              DrainManager drainManager,
                              CausalCaptureEngine captureEngine,
-                             HeapLifecycle heapLifecycle) {
+                             HeapLifecycle heapLifecycle,
+                             CaptureStore captureStore,
+                             CapturePolicy capturePolicy) {
         this.router = router;
         this.executor = executor;
         this.objectMapper = objectMapper;
@@ -73,6 +80,8 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
         this.drainManager = drainManager;
         this.captureEngine = captureEngine;
         this.heapLifecycle = heapLifecycle;
+        this.captureStore = captureStore;
+        this.capturePolicy = capturePolicy;
         this.groupSemaphores = new HashMap<>();
     }
 
@@ -210,6 +219,13 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
             // Causal capture: function start
             captureEngine.captureFunctionStart(requestId, groupName, functionName, revisionId);
 
+            // Replay capture: start building invocation record
+            var captureBuilder = InvocationCapture.builder(requestId, functionName, groupName)
+                    .requestId(requestId)
+                    .revisionId(revisionId)
+                    .httpMethod(method)
+                    .httpPath(path);
+
             // Execute with timeout enforcement
             KubeFnResponse response;
             try {
@@ -225,6 +241,9 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
                 long durationNanos = System.nanoTime() - startNanos;
                 KubeFnMetrics.instance().recordTimeout();
                 circuitBreaker.recordFailure(groupName, functionName, durationNanos, e);
+                // Capture the timeout as a failure
+                captureBuilder.durationNanos(durationNanos).error("Timeout after " + config.requestTimeoutMs() + "ms");
+                captureStore.store(captureBuilder.build());
                 sendError(ctx, 504, "Request timeout after " + config.requestTimeoutMs() + "ms", requestId);
                 return;
             } catch (ExecutionException e) {
@@ -243,17 +262,34 @@ public class RequestDispatcher extends SimpleChannelInboundHandler<FullHttpReque
             KubeFnMetrics.instance().recordInvocation(groupName, functionName, durationNanos, true);
             success = true;
 
+            // Replay capture: record success + check if VALUE capture needed
+            captureBuilder.durationNanos(durationNanos).success(true);
+            boolean shouldValue = capturePolicy.shouldCaptureValue(
+                    functionName, revisionId, false, durationNanos, body.length);
+            if (shouldValue) {
+                captureBuilder.withValueCapture(body, "json", null, null);
+            }
+            captureStore.store(captureBuilder.build());
+
             sendResponse(ctx, response, requestId);
 
         } catch (Exception e) {
             long durationNanos = System.nanoTime() - startNanos;
-            captureEngine.captureFunctionEnd(requestId, groupName, functionName, durationNanos,
-                    e.getClass().getSimpleName() + ": " + e.getMessage());
-            captureEngine.captureRequestEnd(requestId, durationNanos,
-                    e.getClass().getSimpleName() + ": " + e.getMessage());
+            String errorMsg = e.getClass().getSimpleName() + ": " + e.getMessage();
+            captureEngine.captureFunctionEnd(requestId, groupName, functionName, durationNanos, errorMsg);
+            captureEngine.captureRequestEnd(requestId, durationNanos, errorMsg);
             circuitBreaker.recordFailure(groupName, functionName, durationNanos, e);
             KubeFnMetrics.instance().recordInvocation(groupName, functionName, durationNanos, false);
             log.error("Function error: {}.{} [{}]", groupName, functionName, requestId, e);
+
+            // Replay capture: ALWAYS capture VALUE on error (the whole point)
+            var errorCapture = InvocationCapture.builder(requestId, functionName, groupName)
+                    .requestId(requestId).revisionId(revisionId)
+                    .httpMethod(method).httpPath(path)
+                    .durationNanos(durationNanos).error(errorMsg)
+                    .withValueCapture(body, "json", null, null)
+                    .build();
+            captureStore.store(errorCapture);
 
             // Try fallback
             KubeFnRequest request = new KubeFnRequest(
