@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KubeFn — Live Application Fabric for Kubernetes</title>
-    <meta name="description" content="Deploy like microservices. Perform like a monolith. 2-12x faster with zero-copy shared memory. JVM, Python, Node.js.">
-    <meta property="og:title" content="KubeFn — Live Application Fabric">
-    <meta property="og:description" content="Memory-Continuous Architecture. 2-12x faster than microservices. JVM, Python, Node.js.">
+    <title>KubeFn — Safe Software Evolution for Kubernetes</title>
+    <meta name="description" content="Deploy new code. The runtime replays production traffic against it and proves it's safe before a single user sees it. JVM, Python, Node.js.">
+    <meta property="og:title" content="KubeFn — Deploy with evidence, not hope">
+    <meta property="og:description" content="Replay production requests against new code. Diff outputs. Block unsafe deploys automatically. JVM, Python, Node.js.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kubefn.com">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
@@ -539,11 +539,11 @@
     <!-- Hero -->
     <section class="hero">
         <div class="container">
-            <div class="hero-badge">Memory-Continuous Architecture &middot; JVM &middot; Python</div>
-            <h1>Where functions share<br><span class="gradient">memory, not messages.</span></h1>
+            <div class="hero-badge">Safe Software Evolution &middot; JVM &middot; Python &middot; Node.js</div>
+            <h1>Deploy new code.<br><span class="gradient">Prove it's safe first.</span></h1>
             <p class="tagline">
-                Deploy like microservices. Perform like a monolith. Evolve like a living organism.
-                A Kubernetes-native runtime for zero-copy function composition.
+                Drop a new function. The runtime replays your last 200 production requests against it,
+                diffs the outputs, and tells you if it's safe &mdash; before a single user sees it.
             </p>
             <div class="hero-cta">
                 <a href="https://github.com/kubefn/kubefn" class="btn btn-primary">
@@ -662,24 +662,24 @@
     <!-- Triangle -->
     <section class="triangle">
         <div class="container">
-            <h2>The architecture trilemma — solved.</h2>
-            <p class="subtitle">Every platform before KubeFn forces you to pick two. KubeFn gives you all three.</p>
+            <h2>What your deploy pipeline can't do.</h2>
+            <p class="subtitle">Every other platform deploys and hopes. KubeFn deploys with proof.</p>
             <div class="triangle-grid">
                 <div class="triangle-item">
-                    <h3>Monolith</h3>
-                    <p><span class="check">&#10003;</span> Shared memory &nbsp; <span class="cross">&#10007;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                    <h3>Blue/Green</h3>
+                    <p><span class="cross">&#10007;</span> Replay production state &nbsp; <span class="cross">&#10007;</span> Diff outputs &nbsp; <span class="check">&#10003;</span> Rollback</p>
                 </div>
                 <div class="triangle-item">
-                    <h3>Microservices</h3>
-                    <p><span class="cross">&#10007;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                    <h3>Canary</h3>
+                    <p><span class="cross">&#10007;</span> Replay production state &nbsp; <span class="cross">&#10007;</span> Diff outputs &nbsp; <span class="check">&#10003;</span> Gradual rollout</p>
                 </div>
                 <div class="triangle-item">
-                    <h3>FaaS / Serverless</h3>
-                    <p><span class="cross">&#10007;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="cross">&#10007;</span> Hot-swap</p>
+                    <h3>Shadow Traffic</h3>
+                    <p><span class="check">&#10003;</span> Replay messages &nbsp; <span class="cross">&#10007;</span> Structural diff &nbsp; <span class="cross">&#10007;</span> Auto-block</p>
                 </div>
                 <div class="triangle-item" style="border-color: var(--accent); background: rgba(6,182,212,0.05);">
-                    <h3 style="color: var(--accent);">KubeFn</h3>
-                    <p><span class="check">&#10003;</span> Shared memory &nbsp; <span class="check">&#10003;</span> Independent deploy &nbsp; <span class="check">&#10003;</span> Hot-swap</p>
+                    <h3 style="color: var(--accent);">KubeFn PromotionGate</h3>
+                    <p><span class="check">&#10003;</span> Replay real state &nbsp; <span class="check">&#10003;</span> Structural diff &nbsp; <span class="check">&#10003;</span> Auto-block unsafe deploys</p>
                 </div>
             </div>
         </div>
@@ -688,37 +688,37 @@
     <!-- Pillars -->
     <section class="pillars">
         <div class="container">
-            <h2>The Revolutionary Primitives</h2>
+            <h2>What makes KubeFn different</h2>
             <div class="pillar-grid">
+                <div class="pillar">
+                    <div class="icon">&#128257;</div>
+                    <h3>Invocation Replay</h3>
+                    <p>Every invocation is captured. Errors get full input/output snapshots. Click a failed request and see the actual data that caused it &mdash; not logs.</p>
+                </div>
+                <div class="pillar">
+                    <div class="icon">&#128678;</div>
+                    <h3>PromotionGate</h3>
+                    <p>Before new code goes live, the runtime replays captured invocations against it. Diffs outputs structurally. Blocks unsafe deploys automatically.</p>
+                </div>
                 <div class="pillar">
                     <div class="icon">&#129516;</div>
                     <h3>HeapExchange</h3>
-                    <p>Zero-copy shared object graph between functions. No serialization. No network. Same memory address. Function A's output IS Function B's input.</p>
-                </div>
-                <div class="pillar">
-                    <div class="icon">&#9889;</div>
-                    <h3>Born-Warm Deploys</h3>
-                    <p>New function revisions enter an already-hot JVM. Shared libraries are JIT-compiled. Peak performance in &lt;1 second, not 30+ seconds.</p>
+                    <p>Functions share typed objects in memory. No serialization. No network. Same heap reference. With content hashing for causal tracing.</p>
                 </div>
                 <div class="pillar">
                     <div class="icon">&#128260;</div>
                     <h3>Hot-Swap</h3>
-                    <p>Replace individual functions while traffic flows. Zero dropped requests. The organism lives — only the organ is replaced. Tested: 200/200 successful.</p>
-                </div>
-                <div class="pillar">
-                    <div class="icon">&#128209;</div>
-                    <h3>FnGraph Pipelines</h3>
-                    <p>Compose functions into in-memory execution graphs. The runtime owns the graph, traces it, and can optimize it. 7 steps in 0.458ms.</p>
+                    <p>Replace individual functions while traffic flows. Zero dropped requests. Old drains, new goes live. 200/200 under load, zero downtime.</p>
                 </div>
                 <div class="pillar">
                     <div class="icon">&#128737;</div>
-                    <h3>Circuit Breakers</h3>
-                    <p>Per-function failure isolation. If one function fails, the breaker trips — protecting the shared organism from cascade failures.</p>
+                    <h3>Memory Circuit Breakers</h3>
+                    <p>Per-group memory budgets. If one function leaks memory, the runtime kills its classloader before it OOMs the others. JVM-internal QoS.</p>
                 </div>
                 <div class="pillar">
-                    <div class="icon">&#128269;</div>
-                    <h3>Causal Tracing</h3>
-                    <p>OpenTelemetry spans per function with revision IDs, request lineage, and heap mutation tracking. See exactly what happened in memory.</p>
+                    <div class="icon">&#9889;</div>
+                    <h3>~80ms Dev Loop</h3>
+                    <p>Save a file, function is live in 80ms. No JAR build, no copy, no deploy. IDE compiles, runtime reloads. Exploded dev mode.</p>
                 </div>
             </div>
         </div>
