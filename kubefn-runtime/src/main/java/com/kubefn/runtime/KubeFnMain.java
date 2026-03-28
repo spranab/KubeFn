@@ -123,16 +123,35 @@ public class KubeFnMain {
                 memoryBudget, memoryBreaker, gcMonitor,
                 server.captureStore(), server.capturePolicy());
 
-        // ── Load functions ──────────────────────────────────────
-        if (Files.exists(config.functionsDir())) {
-            loader.loadAll(config.functionsDir());
+        // ── Load functions + watcher ─────────────────────────────
+        String devMode = System.getenv("KUBEFN_DEV_MODE");
+        Runnable watcher;
+        Runnable watcherShutdown;
+
+        if ("exploded".equals(devMode)) {
+            // Exploded dev mode: watch build/classes dirs, not JARs
+            // Save → IDE compiles → .class changes → instant reload (~80ms)
+            String projectRoot = System.getenv().getOrDefault(
+                    "KUBEFN_PROJECT_ROOT", System.getProperty("user.dir"));
+            var devWatcher = new com.kubefn.runtime.watcher.DevModeWatcher(
+                    java.nio.file.Path.of(projectRoot), loader);
+            watcher = devWatcher;
+            watcherShutdown = devWatcher::stop;
+            log.info("DEV MODE: exploded — watching build/classes in {}", projectRoot);
+            log.info("Save a .java file → IDE compiles → function reloads in ~80ms");
         } else {
-            Files.createDirectories(config.functionsDir());
-            log.info("Created functions directory: {}", config.functionsDir());
+            // Normal mode: watch for JAR drops
+            if (Files.exists(config.functionsDir())) {
+                loader.loadAll(config.functionsDir());
+            } else {
+                Files.createDirectories(config.functionsDir());
+                log.info("Created functions directory: {}", config.functionsDir());
+            }
+            var jarWatcher = new FunctionWatcher(config.functionsDir(), loader);
+            watcher = jarWatcher;
+            watcherShutdown = jarWatcher::stop;
         }
 
-        // ── Hot-reload watcher ──────────────────────────────────
-        FunctionWatcher watcher = new FunctionWatcher(config.functionsDir(), loader);
         Thread.startVirtualThread(watcher);
 
         // ── Wire memory breaker to classloader unload ────────────
@@ -151,7 +170,7 @@ public class KubeFnMain {
         // ── Graceful shutdown ───────────────────────────────────
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutdown signal received. Draining organism...");
-            watcher.stop();
+            watcherShutdown.run();
             gcMonitor.stop();
             heapLifecycle.shutdown();
             resourceManager.shutdown();

@@ -566,6 +566,16 @@ CIWORKFLOW
 
 # ─── DEV ────────────────────────────────────────────────────────
 cmd_dev() {
+    local exploded=false
+    local project_root="."
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --exploded) exploded=true; shift ;;
+            --project) project_root="$2"; shift 2 ;;
+            *) project_root="$1"; shift ;;
+        esac
+    done
+
     local jar_path
     jar_path=$(find "$(dirname "$0")/../kubefn-runtime/build/libs" -name "kubefn-runtime-*-all.jar" 2>/dev/null | head -1)
 
@@ -579,17 +589,43 @@ cmd_dev() {
 
     banner
     echo ""
-    echo -e "${GREEN}Starting local dev runtime...${NC}"
-    echo -e "  Functions dir: ${CYAN}${FUNCTIONS_DIR}${NC}"
-    echo -e "  HTTP:  ${CYAN}http://localhost:${RUNTIME_PORT}${NC}"
-    echo -e "  Admin: ${CYAN}http://localhost:${ADMIN_PORT}${NC}"
-    echo ""
-    echo -e "${YELLOW}Drop function JARs into ${FUNCTIONS_DIR}/<group>/ to hot-deploy.${NC}"
-    echo ""
 
-    KUBEFN_FUNCTIONS_DIR="${FUNCTIONS_DIR}" \
-        java --enable-preview \
-        -jar "${jar_path}"
+    if [[ "$exploded" == "true" ]]; then
+        local abs_root
+        abs_root=$(cd "$project_root" && pwd)
+        echo -e "${GREEN}Starting EXPLODED dev mode...${NC}"
+        echo -e "  Project:  ${CYAN}${abs_root}${NC}"
+        echo -e "  HTTP:     ${CYAN}http://localhost:${RUNTIME_PORT}${NC}"
+        echo -e "  Admin:    ${CYAN}http://localhost:${ADMIN_PORT}${NC}"
+        echo ""
+        echo -e "${YELLOW}Save a .java file → IDE compiles → function reloads in ~80ms${NC}"
+        echo -e "No JAR build. No copy. No deploy step."
+        echo ""
+
+        # Ensure classes are compiled first
+        if [[ -f "$abs_root/gradlew" ]]; then
+            echo -e "${CYAN}Compiling classes...${NC}"
+            (cd "$abs_root" && ./gradlew classes -q 2>/dev/null)
+        fi
+
+        KUBEFN_DEV_MODE=exploded \
+            KUBEFN_PROJECT_ROOT="$abs_root" \
+            KUBEFN_FUNCTIONS_DIR="${FUNCTIONS_DIR}" \
+            java --enable-preview \
+            -jar "${jar_path}"
+    else
+        echo -e "${GREEN}Starting local dev runtime...${NC}"
+        echo -e "  Functions dir: ${CYAN}${FUNCTIONS_DIR}${NC}"
+        echo -e "  HTTP:  ${CYAN}http://localhost:${RUNTIME_PORT}${NC}"
+        echo -e "  Admin: ${CYAN}http://localhost:${ADMIN_PORT}${NC}"
+        echo ""
+        echo -e "${YELLOW}Drop function JARs into ${FUNCTIONS_DIR}/<group>/ to hot-deploy.${NC}"
+        echo ""
+
+        KUBEFN_FUNCTIONS_DIR="${FUNCTIONS_DIR}" \
+            java --enable-preview \
+            -jar "${jar_path}"
+    fi
 }
 
 # ─── DEPLOY ─────────────────────────────────────────────────────
