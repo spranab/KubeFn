@@ -237,6 +237,24 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
                 }
             }
 
+            case "/admin/heap/graph" -> {
+                var graph = com.kubefn.runtime.graph.HeapDependencyGraph.buildFrom(heapExchange.trace());
+                String fn = parseParam(query, "function");
+                if (fn != null) {
+                    responseBody = graph.impactAnalysis(fn);
+                } else {
+                    responseBody = graph.toMap();
+                }
+            }
+
+            case "/admin/heap/graph/ascii" -> {
+                var graph = com.kubefn.runtime.graph.HeapDependencyGraph.buildFrom(heapExchange.trace());
+                String ascii = graph.renderAscii();
+                byte[] body = ascii.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                sendPlainText(ctx, body);
+                return;
+            }
+
             case "/admin/breakers" -> responseBody = circuitBreaker.allStatus();
             case "/admin/metrics" -> responseBody = KubeFnMetrics.instance().snapshot();
 
@@ -396,6 +414,15 @@ public class AdminHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8");
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, body.length);
         response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+    }
+
+    private void sendPlainText(ChannelHandlerContext ctx, byte[] text) {
+        FullHttpResponse response = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                Unpooled.wrappedBuffer(text));
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, text.length);
         ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 

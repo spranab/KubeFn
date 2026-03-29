@@ -840,6 +840,46 @@ for e in entries:
 " 2>/dev/null || echo -e "${RED}Failed to fetch trace${NC}"
 }
 
+# ─── GRAPH ─────────────────────────────────────────────────────
+cmd_graph() {
+    check_runtime
+    local fn="${1:-}"
+
+    if [[ -n "$fn" ]]; then
+        echo -e "${BOLD}Impact Analysis: ${CYAN}${fn}${NC}"
+        echo ""
+        curl -sf "$(admin_url)/admin/heap/graph?function=${fn}" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+pub = data.get('publishesKeys', [])
+reads = data.get('readsKeys', [])
+down = data.get('downstreamFunctions', [])
+up = data.get('upstreamFunctions', [])
+affected = data.get('affectedConsumers', {})
+
+print(f'  Publishes: {', '.join(pub) if pub else 'none'}')
+print(f'  Reads:     {', '.join(reads) if reads else 'none'}')
+print(f'  Upstream:  {', '.join(up) if up else 'none'}')
+print(f'  Downstream: {', '.join(down) if down else 'none'} ({len(down)} affected)')
+print()
+if affected:
+    print('  Affected consumers:')
+    for key, cons in affected.items():
+        for c in cons:
+            print(f'    {key} → {c}')
+" 2>/dev/null || echo -e "${RED}Failed to fetch graph${NC}"
+    else
+        echo -e "${BOLD}Heap Dependency Graph${NC}"
+        echo ""
+        curl -sf "$(admin_url)/admin/heap/graph/ascii" 2>/dev/null || \
+            echo -e "${RED}Failed to fetch graph. Is the runtime running?${NC}"
+        echo ""
+        echo -e "${CYAN}Usage:${NC}"
+        echo "  kubefn graph                    Full dependency DAG"
+        echo "  kubefn graph checkout.PricingFn  Impact analysis for a function"
+    fi
+}
+
 # ─── LOGS ───────────────────────────────────────────────────────
 cmd_logs() {
     echo -e "${BOLD}Streaming logs from K8s namespace: ${CYAN}${NAMESPACE}${NC}"
@@ -862,6 +902,7 @@ case "${1:-}" in
     breakers)   cmd_breakers ;;
     top)        cmd_top ;;
     trace)      shift; cmd_trace "$@" ;;
+    graph)      shift; cmd_graph "$@" ;;
     logs)       cmd_logs ;;
     version)    cmd_version ;;
     -v|--version) cmd_version ;;
