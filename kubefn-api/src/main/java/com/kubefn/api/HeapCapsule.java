@@ -25,4 +25,19 @@ public record HeapCapsule<T>(
     public T unwrap() {
         return value;
     }
+
+    /**
+     * Age of this heap entry in milliseconds since it was published.
+     * Enables freshness-aware reads: consumers can detect stale data.
+     */
+    public long ageMs() {
+        return java.time.Duration.between(publishedAt, Instant.now()).toMillis();
+    }
+
+    /**
+     * Check if this entry is stale (older than the given threshold).
+     */
+    public boolean isStale(long maxAgeMs) {
+        return ageMs() > maxAgeMs;
+    }
 }
